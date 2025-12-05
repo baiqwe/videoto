@@ -1,0 +1,6 @@
+supabase==2.3.0
+google-generativeai==0.3.2
+yt-dlp>=2024.1.7
+ffmpeg-python==0.2.0
+python-dotenv==1.0.0
+

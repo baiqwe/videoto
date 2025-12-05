@@ -1,38 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 
-import NameGeneratorForm from "@/components/product/generator/name-generator-form";
-import ChineseNamePricing from "@/components/product/pricing/chinese-name-pricing";
-import PopularNames from "@/components/product/popular/popular-names";
-import { saveFormData, loadFormData } from "@/utils/form-storage";
+import VideoInputForm from "@/components/product/generator/video-input-form";
 
-interface NameData {
-  chinese: string;
-  pinyin: string;
-  characters: Array<{
-    character: string;
-    pinyin: string;
-    meaning: string;
-    explanation: string;
-  }>;
-  meaning: string;
-  culturalNotes: string;
-  personalityMatch: string;
-  style: string;
-}
-
-interface FormData {
-  englishName: string;
-  gender: 'male' | 'female' | 'other';
-  birthYear?: string;
-  personalityTraits?: string;
-  namePreferences?: string;
-  planType: '1' | '4';
+interface CreateProjectData {
+  videoSourceUrl: string;
+  title?: string;
 }
 
 export default function Home() {
@@ -41,131 +19,64 @@ export default function Home() {
   const { toast } = useToast();
   
   // UI state
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [hasTriedFree, setHasTriedFree] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
-  // Check localStorage for previous free trial usage
-  useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        const hasUsedFree = localStorage.getItem('hasTriedFreeGeneration') === 'true';
-        setHasTriedFree(hasUsedFree);
-      } else {
-        // Clear localStorage flag for authenticated users
-        localStorage.removeItem('hasTriedFreeGeneration');
-        setHasTriedFree(false);
-      }
-    }
-  }, [user, loading]);
-
-  // Load saved form data
-  const [savedFormData, setSavedFormData] = useState<any>(null);
-  useEffect(() => {
-    const loadedData = loadFormData();
-    if (loadedData) {
-      setSavedFormData(loadedData);
-    }
-  }, []);
-
-
-  const handleGenerate = async (formData: FormData) => {
-    // Check if it's a free trial attempt
-    if (!user && hasTriedFree) {
+  const handleCreate = async (formData: CreateProjectData) => {
+    if (!user) {
       toast({
-        title: "Free trial used",
-        description: "You've already used your free generation. Please sign in for unlimited access!",
+        title: "Sign in required",
+        description: "Please sign in to create a project.",
       });
       router.push('/sign-in');
       return;
     }
 
-    setIsGenerating(true);
+    setIsCreating(true);
 
     try {
-      const response = await fetch('/api/chinese-names/generate', {
+      const response = await fetch('/api/projects/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          videoSourceUrl: formData.videoSourceUrl,
+          title: formData.title || undefined,
+        }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        // Handle rate limiting specifically
-        if (response.status === 429 && data.rateLimited) {
+        if (response.status === 403) {
           toast({
-            title: "Daily limit reached",
-            description: data.error || "You can generate 3 free names per day. Please sign in for unlimited access!",
+            title: "Insufficient credits",
+            description: data.error || "Please purchase more credits to continue.",
+            variant: "destructive",
           });
-          // Show sign-in option
-          setTimeout(() => {
-            router.push('/sign-in');
-          }, 3000);
+          router.push('/dashboard');
           return;
         }
-        throw new Error(data.error || 'Failed to generate names');
+        throw new Error(data.error || 'Failed to create project');
       }
-
-      // Calculate total rounds based on generation round
-      const estimatedTotalRounds = data.isContinuation 
-        ? Math.ceil(data.batch.totalNamesGenerated / 6)
-        : data.generationRound;
-
-      // Save results to sessionStorage and redirect to results page
-      const sessionData = {
-        names: data.names,
-        formData: formData,
-        batch: data.batch,
-        generationRound: data.generationRound,
-        totalGenerationRounds: estimatedTotalRounds,
-        isHistoryMode: false,
-      };
-      
-      sessionStorage.setItem('nameGenerationResults', JSON.stringify(sessionData));
-      
-      // Mark free trial as used for non-authenticated users
-      if (!user) {
-        setHasTriedFree(true);
-        localStorage.setItem('hasTriedFreeGeneration', 'true');
-      }
-
-      // Save form data to localStorage for future use
-      saveFormData({
-        englishName: formData.englishName,
-        gender: formData.gender,
-        birthYear: formData.birthYear,
-        personalityTraits: formData.personalityTraits,
-        namePreferences: formData.namePreferences
-      });
 
       toast({
-        title: data.message || "Names generated successfully!",
-        description: `Generated ${data.names.length} unique Chinese names${data.creditsUsed ? ` using ${data.creditsUsed} credits` : ' for free'}`,
+        title: "Project created!",
+        description: data.message || "Your video is being processed. This may take a few minutes.",
       });
       
-      // Navigate to results page
-      router.push('/results');
+      // Navigate to project page
+      router.push(`/guides/${data.project.id}`);
     } catch (error) {
-      console.error('Generation error:', error);
+      console.error('Create project error:', error);
       const errorMessage = error instanceof Error ? error.message : "Something went wrong. Please try again.";
-      console.error('Detailed error:', errorMessage);
       toast({
-        title: "Generation failed",
+        title: "Failed to create project",
         description: errorMessage,
+        variant: "destructive",
       });
     } finally {
-      setIsGenerating(false);
-    }
-  };
-
-
-
-  const scrollToForm = () => {
-    const formSection = document.querySelector('[data-name-generator-form]');
-    if (formSection) {
-      formSection.scrollIntoView({ behavior: 'smooth' });
+      setIsCreating(false);
     }
   };
 
@@ -183,18 +94,18 @@ export default function Home() {
               className="space-y-6"
             >
               <div className="inline-flex items-center rounded-full px-3 py-1 text-sm bg-primary/10 text-primary mb-4">
-                <span className="mr-2">🇨🇳</span>
-                AI-Powered Chinese Name Generation
+                <span className="mr-2">🎬</span>
+                AI-Powered Video to Guide Conversion
               </div>
               
               <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl lg:text-7xl">
-                Discover Your Perfect
+                Turn Any Video into a
                 <br />
-                <span className="text-primary">Chinese Name</span>
+                <span className="text-primary">Visual Step-by-Step Guide</span>
               </h1>
               
               <p className="mt-6 text-xl text-muted-foreground md:text-2xl max-w-3xl mx-auto">
-                Create your authentic Chinese identity with our advanced AI that understands cultural significance, personal meaning, and traditional naming conventions.
+                Automatically extract key steps from your videos with AI-powered analysis and precise screenshots. Perfect for tutorials, guides, and documentation.
               </p>
               
               <motion.div
@@ -204,18 +115,23 @@ export default function Home() {
                 className="mt-8 flex flex-col sm:flex-row gap-4 justify-center"
               >
                 <button
-                  onClick={scrollToForm}
+                  onClick={() => {
+                    const formSection = document.querySelector('[data-video-input-form]');
+                    if (formSection) {
+                      formSection.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
                   className="inline-flex items-center justify-center h-14 px-8 text-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors shadow-lg"
                 >
-                  {loading ? 'Loading...' : !user ? (hasTriedFree ? '🔒 Sign In for More' : '🎁 Generate Free Name') : '🎯 Generate Name'}
+                  {loading ? 'Loading...' : !user ? '🔒 Sign In to Start' : '🎯 Create Guide'}
                 </button>
                 <button
                   onClick={() => {
-                    router.push('/product/random-generator');
+                    router.push('/dashboard');
                   }}
                   className="inline-flex items-center justify-center h-14 px-8 text-lg font-medium border border-border text-foreground hover:bg-muted rounded-md transition-colors"
                 >
-                  Random Name Generator
+                  View My Projects
                 </button>
               </motion.div>
               
@@ -227,15 +143,15 @@ export default function Home() {
               >
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  {loading ? 'Loading...' : !user ? '3 free names daily' : 'Unlimited generation'}
+                  AI-powered step detection
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  Instant generation
+                  Automatic screenshots
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                  Cultural accuracy
+                  Export to Markdown/HTML
                 </div>
               </motion.div>
             </motion.div>
@@ -255,48 +171,20 @@ export default function Home() {
             >
               <div className="text-center space-y-4">
                 <h2 className="text-3xl font-bold tracking-tight text-foreground">
-                  Create Your Chinese Name
+                  Create Your Video Guide
                 </h2>
                 <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                  Tell us about yourself and let our AI create a meaningful Chinese name that reflects your personality and cultural significance.
+                  Simply paste a YouTube URL and let our AI do the work. We'll analyze the video, extract key steps, and generate a beautiful step-by-step guide.
                 </p>
               </div>
 
-              <div id="name-generator-form" data-name-generator-form>
-                <NameGeneratorForm 
-                  onGenerate={handleGenerate}
-                  isGenerating={isGenerating}
-                  hasTriedFree={hasTriedFree}
-                  savedFormData={savedFormData}
+              <div id="video-input-form" data-video-input-form>
+                <VideoInputForm 
+                  onCreate={handleCreate}
+                  isCreating={isCreating}
                 />
-                
-                {/* Personal Center Button for authenticated users */}
-                {user && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0.2 }}
-                    className="text-center mt-6"
-                  >
-                    <button
-                      onClick={() => router.push('/profile')}
-                      className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-primary hover:text-primary/80 transition-colors border border-primary/20 hover:border-primary/40 rounded-lg"
-                    >
-                      👤 Profile - View History & Saved Names
-                    </button>
-                  </motion.div>
-                )}
               </div>
             </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Popular Names Section */}
-      <section className="py-20 bg-gradient-to-b from-background to-muted/20" data-popular-names>
-        <div className="container px-4 md:px-6">
-          <div className="mx-auto max-w-6xl">
-            <PopularNames onScrollToGenerator={scrollToForm} />
           </div>
         </div>
       </section>
@@ -312,10 +200,10 @@ export default function Home() {
               className="space-y-4"
             >
               <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                Why Choose Our Chinese Name Generator?
+                Why Choose VidStep?
               </h2>
               <p className="mx-auto max-w-3xl text-muted-foreground text-lg">
-                Advanced AI technology combined with deep cultural understanding to create meaningful Chinese names that truly represent you.
+                Transform your video content into professional documentation with AI-powered analysis and automatic screenshot capture.
               </p>
             </motion.div>
             
@@ -330,9 +218,9 @@ export default function Home() {
                   <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                     <span className="text-2xl">🤖</span>
                   </div>
-                  <h3 className="text-xl font-bold text-foreground">AI-Powered Intelligence</h3>
+                  <h3 className="text-xl font-bold text-foreground">AI-Powered Analysis</h3>
                   <p className="text-muted-foreground">
-                    Our advanced AI understands your personality traits, preferences, and cultural nuances to create names that truly represent you.
+                    Our advanced AI understands video content and automatically identifies key steps and important moments.
                   </p>
                 </div>
               </motion.div>
@@ -345,11 +233,11 @@ export default function Home() {
               >
                 <div className="space-y-4">
                   <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                    <span className="text-2xl">🏮</span>
+                    <span className="text-2xl">📸</span>
                   </div>
-                  <h3 className="text-xl font-bold text-foreground">Cultural Authenticity</h3>
+                  <h3 className="text-xl font-bold text-foreground">Precise Screenshots</h3>
                   <p className="text-muted-foreground">
-                    Each name is crafted with deep understanding of Chinese naming traditions, character meanings, and cultural significance.
+                    Automatically capture high-quality screenshots at the perfect moments for each step.
                   </p>
                 </div>
               </motion.div>
@@ -364,9 +252,9 @@ export default function Home() {
                   <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                     <span className="text-2xl">⚡</span>
                   </div>
-                  <h3 className="text-xl font-bold text-foreground">Instant Generation</h3>
+                  <h3 className="text-xl font-bold text-foreground">Fast Processing</h3>
                   <p className="text-muted-foreground">
-                    Get your personalized Chinese name in seconds, complete with detailed meanings, pronunciation guides, and cultural context.
+                    Get your step-by-step guide in minutes. Perfect for content creators who need quick turnaround.
                   </p>
                 </div>
               </motion.div>
@@ -374,12 +262,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Pricing Section */}
-      <div id="pricing">
-        <ChineseNamePricing onScrollToForm={scrollToForm} />
-      </div>
-
 
       {/* Final CTA Section */}
       <section className="py-20 bg-gradient-to-b from-muted/10 to-background">
@@ -392,26 +274,31 @@ export default function Home() {
               className="space-y-6"
             >
               <h2 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
-                Start Your Cultural Journey Today
+                Start Creating Guides Today
               </h2>
               <p className="mx-auto max-w-2xl text-muted-foreground text-lg">
-                Discover the perfect Chinese name that represents your identity, personality, and cultural connection.
+                Transform your video tutorials into professional documentation that's easy to follow and share.
                 <br />
-                Join thousands who have found their authentic Chinese identity.
+                Join creators who are making their content more accessible.
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
                 <button 
-                  onClick={scrollToForm}
+                  onClick={() => {
+                    const formSection = document.querySelector('[data-video-input-form]');
+                    if (formSection) {
+                      formSection.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
                   className="inline-flex items-center justify-center h-14 px-8 text-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors shadow-lg"
                 >
-                  {loading ? 'Loading...' : !user ? (hasTriedFree ? '🔒 Sign In for Unlimited Names' : '🎁 Get Your Free Chinese Name') : '🎯 Generate Chinese Name'}
+                  {loading ? 'Loading...' : !user ? '🔒 Sign In to Start' : '🎯 Create Your First Guide'}
                 </button>
-                <a 
-                  href="#chinese-name-pricing"
+                <button
+                  onClick={() => router.push('/dashboard')}
                   className="inline-flex items-center justify-center h-14 px-8 text-lg font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  View Premium Features →
-                </a>
+                  View Dashboard →
+                </button>
               </div>
             </motion.div>
           </div>

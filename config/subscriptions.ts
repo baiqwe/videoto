@@ -57,50 +57,37 @@ export const SUBSCRIPTION_TIERS: ProductTier[] = [
 export const CREDITS_TIERS: ProductTier[] = [
   {
     name: "Basic Package",
-    id: "tier-3-credits",
-    productId: "prod_MqcjVo0Bpx0rbYmHVlrh2", // $9 one-time purchase
+    id: "tier-50-credits",
+    productId: "prod_MqcjVo0Bpx0rbYmHVlrh2", // $9 one-time purchase - Update this with your actual Creem product ID
     priceMonthly: "$9",
-    description: "3 credits for testing and small-scale projects.",
-    creditAmount: 3,
+    description: "50 credits - Process approximately 5 videos (10 credits per video).",
+    creditAmount: 50,
     features: [
-      "3 credits for use across all features",
+      "50 credits for video processing",
+      "Process ~5 videos (10 credits per video)",
       "No expiration date",
-      "Access to standard features",
+      "Access to all features",
       "Community support"
     ],
     featured: false,
     discountCode: "", // Optional discount code
   },
   {
-    name: "Standard Package",
-    id: "tier-6-credits",
-    productId: "prod_4ICkTovEC6o9QY6UuL3aI0", // $13 one-time purchase
-    priceMonthly: "$13",
-    description: "6 credits for medium-sized applications.",
-    creditAmount: 6,
+    name: "Pro Package",
+    id: "tier-200-credits",
+    productId: "prod_4ICkTovEC6o9QY6UuL3aI0", // $29 one-time purchase - Update this with your actual Creem product ID
+    priceMonthly: "$29",
+    description: "200 credits - Process approximately 20 videos. Best value for content creators.",
+    creditAmount: 200,
     features: [
-      "6 credits for use across all features",
+      "200 credits for video processing",
+      "Process ~20 videos (10 credits per video)",
       "No expiration date",
       "Priority processing",
-      "Basic email support"
+      "Email support",
+      "Best value per credit"
     ],
     featured: true,
-    discountCode: "", // Optional discount code
-  },
-  {
-    name: "Premium Package",
-    id: "tier-9-credits",
-    productId: "prod_3b3oyQtIJA3eaMIHLNjyCc", // $29 one-time purchase
-    priceMonthly: "$29",
-    description: "9 credits for larger applications and production use.",
-    creditAmount: 9,
-    features: [
-      "9 credits for use across all features",
-      "No expiration date",
-      "Premium support",
-      "Advanced analytics access"
-    ],
-    featured: false,
     discountCode: "", // Optional discount code
   },
 ];

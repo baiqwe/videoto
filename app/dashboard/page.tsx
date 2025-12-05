@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 import { SubscriptionStatusCard } from "@/components/dashboard/subscription-status-card";
 import { CreditsBalanceCard } from "@/components/dashboard/credits-balance-card";
 import { QuickActionsCard } from "@/components/dashboard/quick-actions-card";
-import { MyNamesCard } from "@/components/dashboard/my-names-card";
-import { GenerationHistoryCard } from "@/components/dashboard/generation-history-card";
+import { MyProjectsCard } from "@/components/dashboard/my-projects-card";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -51,7 +50,7 @@ export default async function DashboardPage() {
           <span className="block sm:inline mt-1 sm:mt-0">{user.email}</span>
         </h1>
         <p className="text-sm sm:text-base text-muted-foreground">
-          Manage your Chinese names, view your generation history, and track your usage.
+          Manage your video projects, view processing status, and track your usage.
         </p>
       </div>
 
@@ -66,9 +65,8 @@ export default async function DashboardPage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <MyNamesCard />
-        <GenerationHistoryCard />
+      <div className="grid gap-6">
+        <MyProjectsCard />
       </div>
 
       {/* Account Details Section */}

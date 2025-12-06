@@ -5,20 +5,19 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
-
 import VideoInputForm from "@/components/product/generator/video-input-form";
+import { ArrowRight, FileText, Zap, Image as ImageIcon, CheckCircle2 } from "lucide-react";
 
 interface CreateProjectData {
   videoSourceUrl: string;
   title?: string;
+  generationMode?: 'text_only' | 'text_with_images';
 }
 
 export default function Home() {
   const router = useRouter();
   const { user, loading } = useUser();
   const { toast } = useToast();
-  
-  // UI state
   const [isCreating, setIsCreating] = useState(false);
 
   const handleCreate = async (formData: CreateProjectData) => {
@@ -42,6 +41,7 @@ export default function Home() {
         body: JSON.stringify({
           videoSourceUrl: formData.videoSourceUrl,
           title: formData.title || undefined,
+          generationMode: formData.generationMode || 'text_with_images',
         }),
       });
 
@@ -82,228 +82,207 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section */}
-      <section className="relative py-20 lg:py-32 bg-gradient-to-b from-muted/20 to-background">
-        <div className="absolute inset-0 bg-grid-pattern opacity-5" />
-        <div className="container px-4 md:px-6 relative">
-          <div className="flex flex-col items-center space-y-4 text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="space-y-6"
-            >
-              <div className="inline-flex items-center rounded-full px-3 py-1 text-sm bg-primary/10 text-primary mb-4">
-                <span className="mr-2">🎬</span>
-                AI-Powered Video to Guide Conversion
-              </div>
-              
-              <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl lg:text-7xl">
-                Turn Any Video into a
-                <br />
-                <span className="text-primary">Visual Step-by-Step Guide</span>
-              </h1>
-              
-              <p className="mt-6 text-xl text-muted-foreground md:text-2xl max-w-3xl mx-auto">
-                Automatically extract key steps from your videos with AI-powered analysis and precise screenshots. Perfect for tutorials, guides, and documentation.
-              </p>
-              
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="mt-8 flex flex-col sm:flex-row gap-4 justify-center"
-              >
-                <button
-                  onClick={() => {
-                    const formSection = document.querySelector('[data-video-input-form]');
-                    if (formSection) {
-                      formSection.scrollIntoView({ behavior: 'smooth' });
-                    }
-                  }}
-                  className="inline-flex items-center justify-center h-14 px-8 text-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors shadow-lg"
-                >
-                  {loading ? 'Loading...' : !user ? '🔒 Sign In to Start' : '🎯 Create Guide'}
-                </button>
-                <button
-                  onClick={() => {
-                    router.push('/dashboard');
-                  }}
-                  className="inline-flex items-center justify-center h-14 px-8 text-lg font-medium border border-border text-foreground hover:bg-muted rounded-md transition-colors"
-                >
-                  View My Projects
-                </button>
-              </motion.div>
-              
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4 }}
-                className="flex items-center justify-center gap-8 pt-8 text-sm text-muted-foreground"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  AI-powered step detection
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  Automatic screenshots
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                  Export to Markdown/HTML
-                </div>
-              </motion.div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Main Content */}
-      <section className="py-16 bg-background">
+      
+      {/* 1. Hero Section - The "Hook" */}
+      <section className="relative pt-20 pb-32 overflow-hidden">
+        {/* 背景装饰 */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-gradient-to-b from-primary/5 to-transparent -z-10" />
+        
         <div className="container px-4 md:px-6">
-          <div className="mx-auto max-w-6xl">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="space-y-12"
-            >
-              <div className="text-center space-y-4">
-                <h2 className="text-3xl font-bold tracking-tight text-foreground">
-                  Create Your Video Guide
-                </h2>
-                <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                  Simply paste a YouTube URL and let our AI do the work. We'll analyze the video, extract key steps, and generate a beautiful step-by-step guide.
-                </p>
-              </div>
-
-              <div id="video-input-form" data-video-input-form>
-                <VideoInputForm 
-                  onCreate={handleCreate}
-                  isCreating={isCreating}
-                />
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section id="features" className="py-20 bg-muted/20">
-        <div className="container px-4 md:px-6">
-          <div className="mx-auto max-w-6xl space-y-12 text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="space-y-4"
-            >
-              <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                Why Choose VidStep?
-              </h2>
-              <p className="mx-auto max-w-3xl text-muted-foreground text-lg">
-                Transform your video content into professional documentation with AI-powered analysis and automatic screenshot capture.
-              </p>
-            </motion.div>
+          <div className="flex flex-col items-center text-center space-y-8">
             
-            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.5 }}
-                className="rounded-2xl bg-background p-8 shadow-sm border border-border"
-              >
-                <div className="space-y-4">
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                    <span className="text-2xl">🤖</span>
+            {/* 品牌标签 */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm font-medium text-primary"
+            >
+              <span className="flex h-2 w-2 rounded-full bg-primary mr-2"></span>
+              Introducing Vidoc 1.0
+            </motion.div>
+
+            {/* 主标题 - SEO 核心 */}
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-4xl font-bold tracking-tight sm:text-6xl lg:text-7xl max-w-4xl"
+            >
+              Turn Video Content into <br/>
+              <span className="text-primary">Structured Documentation</span>
+            </motion.h1>
+
+            {/* 副标题 - 痛点描述 */}
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="text-xl text-muted-foreground max-w-2xl"
+            >
+              Vidoc transforms YouTube tutorials into clean, step-by-step articles with screenshots. 
+              Perfect for developers, writers, and learners.
+            </motion.p>
+
+            {/* 核心功能区 - Video Input */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="w-full max-w-2xl mt-8"
+            >
+              <div className="bg-card p-2 rounded-xl shadow-lg border">
+                <VideoInputForm onCreate={handleCreate} isCreating={isCreating} />
+              </div>
+              <p className="text-xs text-muted-foreground mt-4">
+                Try: Tutorials, Product Reviews, or Educational Lectures.
+              </p>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. Visual Value Proposition - "What you get" */}
+      <section className="py-20 bg-muted/30 border-y">
+        <div className="container px-4 md:px-6">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="space-y-6">
+              <h2 className="text-3xl font-bold tracking-tight">
+                From <span className="text-red-500">Video Chaos</span> to <span className="text-primary">Document Clarity</span>
+              </h2>
+              <div className="space-y-4">
+                {[
+                  { title: "AI Summarization", desc: "Gemini 1.5 Pro analyzes context and extracts key insights." },
+                  { title: "Smart Screenshots", desc: "Automatically captures HD frames at crucial steps." },
+                  { title: "SEO Ready", desc: "Outputs formatted Markdown/HTML ready for your blog." }
+                ].map((item, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="mt-1 bg-primary/10 p-2 rounded-lg h-fit">
+                      <CheckCircle2 className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">{item.title}</h3>
+                      <p className="text-muted-foreground text-sm">{item.desc}</p>
+                    </div>
                   </div>
-                  <h3 className="text-xl font-bold text-foreground">AI-Powered Analysis</h3>
-                  <p className="text-muted-foreground">
-                    Our advanced AI understands video content and automatically identifies key steps and important moments.
-                  </p>
-                </div>
-              </motion.div>
-              
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.6 }}
-                className="rounded-2xl bg-background p-8 shadow-sm border border-border"
-              >
-                <div className="space-y-4">
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                    <span className="text-2xl">📸</span>
+                ))}
+              </div>
+            </div>
+            
+            {/* Visual Demo Mockup */}
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-primary to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+              <div className="relative bg-background rounded-xl border shadow-2xl overflow-hidden aspect-video flex">
+                {/* Left: Video Player representation */}
+                <div className="w-1/3 bg-black flex items-center justify-center border-r">
+                  <div className="w-12 h-12 rounded-full border-2 border-white flex items-center justify-center">
+                    <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[16px] border-l-white border-b-[8px] border-b-transparent ml-1"></div>
                   </div>
-                  <h3 className="text-xl font-bold text-foreground">Precise Screenshots</h3>
-                  <p className="text-muted-foreground">
-                    Automatically capture high-quality screenshots at the perfect moments for each step.
-                  </p>
                 </div>
-              </motion.div>
-              
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.7 }}
-                className="rounded-2xl bg-background p-8 shadow-sm border border-border"
-              >
-                <div className="space-y-4">
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                    <span className="text-2xl">⚡</span>
+                {/* Right: Document representation */}
+                <div className="w-2/3 p-6 space-y-3 bg-white dark:bg-zinc-950">
+                  <div className="h-6 w-3/4 bg-primary/20 rounded animate-pulse"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-muted rounded"></div>
+                    <div className="h-3 w-5/6 bg-muted rounded"></div>
+                    <div className="h-3 w-full bg-muted rounded"></div>
                   </div>
-                  <h3 className="text-xl font-bold text-foreground">Fast Processing</h3>
-                  <p className="text-muted-foreground">
-                    Get your step-by-step guide in minutes. Perfect for content creators who need quick turnaround.
-                  </p>
+                  <div className="h-24 w-full bg-muted/50 rounded border border-dashed flex items-center justify-center text-xs text-muted-foreground">
+                    [Smart Screenshot]
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3 w-full bg-muted rounded"></div>
+                    <div className="h-3 w-4/5 bg-muted rounded"></div>
+                  </div>
                 </div>
-              </motion.div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Final CTA Section */}
-      <section className="py-20 bg-gradient-to-b from-muted/10 to-background">
+      {/* 3. Use Cases - Targeting specific Personas (SEO) */}
+      <section className="py-24">
         <div className="container px-4 md:px-6">
-          <div className="mx-auto max-w-4xl text-center space-y-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.9 }}
-              className="space-y-6"
-            >
-              <h2 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
-                Start Creating Guides Today
-              </h2>
-              <p className="mx-auto max-w-2xl text-muted-foreground text-lg">
-                Transform your video tutorials into professional documentation that's easy to follow and share.
-                <br />
-                Join creators who are making their content more accessible.
-              </p>
-              <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
-                <button 
-                  onClick={() => {
-                    const formSection = document.querySelector('[data-video-input-form]');
-                    if (formSection) {
-                      formSection.scrollIntoView({ behavior: 'smooth' });
-                    }
-                  }}
-                  className="inline-flex items-center justify-center h-14 px-8 text-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors shadow-lg"
-                >
-                  {loading ? 'Loading...' : !user ? '🔒 Sign In to Start' : '🎯 Create Your First Guide'}
-                </button>
-                <button
-                  onClick={() => router.push('/dashboard')}
-                  className="inline-flex items-center justify-center h-14 px-8 text-lg font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  View Dashboard →
-                </button>
-              </div>
-            </motion.div>
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold">Built for Content Creators & Builders</h2>
+            <p className="text-muted-foreground mt-4">Why users choose Vidoc for their workflow</p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            <UseCaseCard 
+              icon={<FileText className="w-6 h-6" />}
+              title="For Bloggers"
+              desc="Repurpose your YouTube content into SEO-friendly blog posts in seconds. Multiply your traffic sources."
+            />
+            <UseCaseCard 
+              icon={<Zap className="w-6 h-6" />}
+              title="For Developers"
+              desc="Convert coding tutorials into copy-pasteable documentation. Stop pausing video to read code."
+            />
+            <UseCaseCard 
+              icon={<ImageIcon className="w-6 h-6" />}
+              title="For Students"
+              desc="Turn 1-hour lectures into 5-minute reading summaries with key slides captured automatically."
+            />
           </div>
         </div>
       </section>
+
+      {/* 4. SEO Content Block (FAQ) - Hidden gem for Google */}
+      <section className="py-20 bg-muted/10 border-t">
+        <div className="container px-4 md:px-6 max-w-4xl">
+          <h2 className="text-2xl font-bold mb-8">Frequently Asked Questions</h2>
+          <div className="space-y-6">
+            <FAQItem 
+              q="How does Vidoc convert video to text?"
+              a="Vidoc uses advanced AI (Gemini 1.5 Pro) to analyze both the visual and audio components of a YouTube video. It then synthesizes this information into a structured article, capturing screenshots at key moments."
+            />
+            <FAQItem 
+              q="Can I use this for SEO content generation?"
+              a="Absolutely. Vidoc generates clean, structured Markdown that is perfect for blog posts. You can edit the output and publish it to boost your site's SEO."
+            />
+            <FAQItem 
+              q="What is the difference between a transcript and a Vidoc guide?"
+              a="A transcript is just raw text. A Vidoc guide is a curated article with headings, paragraphs, and visual screenshots, designed to be read, not just searched."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Footer CTA */}
+      <section className="py-20 border-t">
+        <div className="container px-4 text-center">
+          <h2 className="text-3xl font-bold mb-6">Ready to transform your content?</h2>
+          <button 
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="bg-primary text-primary-foreground px-8 py-4 rounded-lg font-medium text-lg hover:opacity-90 transition-opacity"
+          >
+            Create Your First Vidoc
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// 辅助组件：保持主文件整洁
+function UseCaseCard({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) {
+  return (
+    <div className="p-6 rounded-xl border bg-card hover:shadow-md transition-shadow">
+      <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary mb-4">
+        {icon}
+      </div>
+      <h3 className="font-semibold text-xl mb-2">{title}</h3>
+      <p className="text-muted-foreground">{desc}</p>
+    </div>
+  );
+}
+
+function FAQItem({ q, a }: { q: string, a: string }) {
+  return (
+    <div className="space-y-2">
+      <h4 className="font-semibold text-lg">{q}</h4>
+      <p className="text-muted-foreground">{a}</p>
     </div>
   );
 }

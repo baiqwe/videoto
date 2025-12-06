@@ -12,19 +12,34 @@ const baseUrl = process.env.BASE_URL
 
 export const metadata = {
   metadataBase: new URL(baseUrl),
-  title: "ChineseName.club - AI Chinese Name Generator",
-  description: "Discover your perfect Chinese name with our AI-powered generator. Get personalized names based on your personality, with cultural significance and detailed meanings.",
-  keywords: "Chinese name generator, AI name generator, Chinese names, cultural names, personalized names, Chinese identity",
+  title: {
+    default: "Vidoc - Turn YouTube Videos into Articles & Guides with AI",
+    template: "%s | Vidoc"
+  },
+  description: "Stop pausing and typing. Vidoc automatically converts YouTube videos into structured articles, step-by-step guides, and blog posts with screenshots. Turn watch time into read time.",
+  keywords: [
+    "video to text",
+    "YouTube to article",
+    "AI guide generator",
+    "video documentation",
+    "content repurposing",
+    "video to blog",
+    "video summarizer",
+    "automated documentation",
+    "Vidoc"
+  ],
   openGraph: {
-    title: "ChineseName.club - AI Chinese Name Generator",
-    description: "Discover your perfect Chinese name with our AI-powered generator. Get personalized names based on your personality, with cultural significance and detailed meanings.",
+    title: "Vidoc - Turn Videos into Docs",
+    description: "Instantly create illustrated guides from any video. Transform YouTube tutorials into structured articles with AI-powered analysis.",
     type: "website",
+    locale: "en_US",
     url: baseUrl,
+    siteName: "Vidoc",
   },
   twitter: {
     card: "summary_large_image",
-    title: "ChineseName.club - AI Chinese Name Generator",
-    description: "Discover your perfect Chinese name with our AI-powered generator.",
+    title: "Vidoc - Turn Videos into Docs",
+    description: "Instantly create illustrated guides from any video. Transform YouTube tutorials into structured articles with AI.",
   },
 };
 

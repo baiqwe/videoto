@@ -1,9 +1,11 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { SubscriptionStatusCard } from "@/components/dashboard/subscription-status-card";
 import { CreditsBalanceCard } from "@/components/dashboard/credits-balance-card";
 import { QuickActionsCard } from "@/components/dashboard/quick-actions-card";
 import { MyProjectsCard } from "@/components/dashboard/my-projects-card";
+import { Button } from "@/components/ui/button";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -82,6 +84,19 @@ export default async function DashboardPage() {
               <p className="text-muted-foreground">User ID</p>
               <p className="font-medium break-all">{user.id}</p>
             </div>
+          </div>
+          
+          {/* Developer Tools */}
+          <div className="pt-4 border-t">
+            <h3 className="font-semibold mb-3">Developer Tools</h3>
+            <Link href="/dashboard/prompt">
+              <Button variant="outline" className="w-full sm:w-auto">
+                🎨 AI Prompt Playground
+              </Button>
+            </Link>
+            <p className="text-xs text-muted-foreground mt-2">
+              Edit the system prompt used for video analysis. Changes take effect immediately.
+            </p>
           </div>
         </div>
       </div>

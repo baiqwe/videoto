@@ -21,11 +21,11 @@ export default function Header({ user }: HeaderProps) {
   const pathname = usePathname();
   const isDashboard = pathname?.startsWith("/dashboard");
 
-  // Main navigation items for Chinese Name Generator
+  // Main navigation items for Vidoc
   const mainNavItems: NavItem[] = [
     { label: "Home", href: "/" },
-    { label: "Popular Names", href: "/product/popular-names" },
-    { label: "About", href: "/product/about" },
+    { label: "Dashboard", href: "/dashboard" },
+    { label: "About", href: "/about" },
   ];
 
   // Dashboard items - empty array as we don't want navigation items in dashboard

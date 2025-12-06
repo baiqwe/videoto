@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Card,
   CardContent,
@@ -30,6 +31,7 @@ const formSchema = z.object({
     message: "Please enter a valid YouTube URL.",
   }),
   title: z.string().optional(),
+  generationMode: z.enum(['text_only', 'text_with_images']).default('text_with_images'),
 });
 
 interface VideoInputFormProps {
@@ -47,6 +49,7 @@ export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormP
     defaultValues: {
       videoSourceUrl: "",
       title: "",
+      generationMode: 'text_with_images',
     },
   });
 
@@ -131,6 +134,39 @@ export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormP
               <p className="text-sm text-muted-foreground">
                 Give your project a name to easily find it later.
               </p>
+            </div>
+
+            {/* Generation Mode Selection */}
+            <div className="space-y-3">
+              <Label className="text-base font-medium">Generation Mode</Label>
+              <RadioGroup
+                value={form.watch("generationMode")}
+                onValueChange={(value) => form.setValue("generationMode", value as 'text_only' | 'text_with_images')}
+                className="space-y-3"
+              >
+                <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="text_with_images" id="mode-images" className="mt-1" />
+                  <div className="flex-1">
+                    <Label htmlFor="mode-images" className="font-medium cursor-pointer">
+                      Text + Images (Recommended)
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Generate structured text with screenshots at key moments. Perfect for tutorials and step-by-step guides.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="text_only" id="mode-text" className="mt-1" />
+                  <div className="flex-1">
+                    <Label htmlFor="mode-text" className="font-medium cursor-pointer">
+                      Text Only (Faster)
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Generate structured text content only, without screenshots. Faster processing, ideal for summaries and transcripts.
+                    </p>
+                  </div>
+                </div>
+              </RadioGroup>
             </div>
 
             {/* Info Box */}

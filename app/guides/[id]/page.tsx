@@ -5,8 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowLeft, Clock, Share2, Download, Copy } from "lucide-react";
 
 interface Step {
   id: string;
@@ -60,7 +61,11 @@ export default function GuidePage() {
         const data = await response.json();
         setProject(data.project);
         setSteps(data.steps || []);
-        setLoading(false);
+        
+        // Stop loading if project is completed or failed
+        if (data.project.status === 'completed' || data.project.status === 'failed') {
+          setLoading(false);
+        }
       } catch (error) {
         console.error('Error fetching project:', error);
         toast({
@@ -74,12 +79,12 @@ export default function GuidePage() {
 
     fetchProject();
 
-    // Poll every 5 seconds if project is pending or processing
+    // Poll every 3 seconds if project is pending or processing
     const interval = setInterval(() => {
       if (project?.status === 'pending' || project?.status === 'processing') {
         fetchProject();
       }
-    }, 5000);
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [projectId, project?.status, toast]);
@@ -93,17 +98,17 @@ export default function GuidePage() {
       markdown += `**Source:** ${project.videoSourceUrl}\n\n`;
       markdown += `---\n\n`;
 
-      steps.forEach((step, index) => {
-        markdown += `## Step ${step.stepOrder}: ${step.title}\n\n`;
+      steps.forEach((step) => {
+        markdown += `## ${step.title}\n\n`;
         if (step.imageUrl) {
-          markdown += `![Step ${step.stepOrder}](${step.imageUrl})\n\n`;
+          const fullImageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/guide_images/${step.imageUrl}`;
+          markdown += `![${step.title}](${fullImageUrl})\n\n`;
         }
         markdown += `${step.description}\n\n`;
         markdown += `*Timestamp: ${formatTime(step.timestampSeconds)}*\n\n`;
         markdown += `---\n\n`;
       });
 
-      // Create blob and download
       const blob = new Blob([markdown], { type: 'text/markdown' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -115,13 +120,13 @@ export default function GuidePage() {
       URL.revokeObjectURL(url);
 
       toast({
-        title: "Exported!",
+        title: "Success",
         description: "Markdown file downloaded successfully.",
       });
     } catch (error) {
       toast({
-        title: "Export failed",
-        description: "Failed to export markdown. Please try again.",
+        title: "Error",
+        description: "Failed to export markdown.",
         variant: "destructive",
       });
     } finally {
@@ -129,77 +134,7 @@ export default function GuidePage() {
     }
   };
 
-  const exportToHTML = () => {
-    if (!project || steps.length === 0) return;
-
-    setIsExporting(true);
-    try {
-      let html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${project.title || 'Video Guide'}</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            line-height: 1.6;
-        }
-        h1 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        h2 { color: #555; margin-top: 30px; }
-        img { max-width: 100%; height: auto; border-radius: 8px; margin: 20px 0; }
-        .timestamp { color: #888; font-size: 0.9em; }
-        hr { margin: 30px 0; border: none; border-top: 1px solid #eee; }
-    </style>
-</head>
-<body>
-    <h1>${project.title || 'Video Guide'}</h1>
-    <p><strong>Source:</strong> <a href="${project.videoSourceUrl}">${project.videoSourceUrl}</a></p>
-    <hr>`;
-
-      steps.forEach((step) => {
-        html += `
-    <h2>${step.title}</h2>
-    ${step.imageUrl ? `    <img src="${step.imageUrl}" alt="${step.title}">` : ''}
-    <p>${step.description}</p>
-    <p class="timestamp">Video timestamp: ${formatTime(step.timestampSeconds)}</p>
-    <hr>`;
-      });
-
-      html += `
-</body>
-</html>`;
-
-      // Create blob and download
-      const blob = new Blob([html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${project.title || 'guide'}.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast({
-        title: "Exported!",
-        description: "HTML file downloaded successfully.",
-      });
-    } catch (error) {
-      toast({
-        title: "Export failed",
-        description: "Failed to export HTML. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const copyMarkdown = () => {
+  const copyMarkdown = async () => {
     if (!project || steps.length === 0) return;
 
     setIsExporting(true);
@@ -211,22 +146,23 @@ export default function GuidePage() {
       steps.forEach((step) => {
         markdown += `## ${step.title}\n\n`;
         if (step.imageUrl) {
-          markdown += `![${step.title}](${step.imageUrl})\n\n`;
+          const fullImageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/guide_images/${step.imageUrl}`;
+          markdown += `![${step.title}](${fullImageUrl})\n\n`;
         }
         markdown += `${step.description}\n\n`;
-        markdown += `*Video timestamp: ${formatTime(step.timestampSeconds)}*\n\n`;
+        markdown += `*Timestamp: ${formatTime(step.timestampSeconds)}*\n\n`;
         markdown += `---\n\n`;
       });
 
-      navigator.clipboard.writeText(markdown);
+      await navigator.clipboard.writeText(markdown);
       toast({
-        title: "Copied!",
-        description: "Markdown copied to clipboard.",
+        title: "Success",
+        description: "Markdown copied to clipboard!",
       });
     } catch (error) {
       toast({
-        title: "Copy failed",
-        description: "Failed to copy markdown. Please try again.",
+        title: "Error",
+        description: "Failed to copy markdown.",
         variant: "destructive",
       });
     } finally {
@@ -234,180 +170,154 @@ export default function GuidePage() {
     }
   };
 
-  if (loading) {
+  if (loading || project?.status === 'processing' || project?.status === 'pending') {
     return (
-      <div className="container px-4 md:px-6 py-12">
-        <Skeleton className="h-8 w-64 mb-4" />
-        <Skeleton className="h-4 w-96 mb-8" />
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-48 w-full" />
-          ))}
+      <div className="min-h-screen bg-background">
+        <div className="border-b bg-background/95 backdrop-blur sticky top-0 z-10">
+          <div className="container max-w-5xl h-16 flex items-center justify-between">
+            <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')} className="gap-2">
+              <ArrowLeft className="w-4 h-4" /> Back
+            </Button>
+          </div>
+        </div>
+        <div className="container max-w-3xl py-20 space-y-8">
+          <div className="space-y-4 text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <h2 className="text-xl font-semibold">AI is analyzing your video...</h2>
+            <p className="text-muted-foreground">This usually takes 1-2 minutes. We are extracting transcript, summarizing content, and capturing screenshots.</p>
+          </div>
+          <div className="space-y-12">
+            {[1, 2].map(i => (
+              <div key={i} className="flex gap-8">
+                <Skeleton className="w-1/2 h-64" />
+                <div className="w-1/2 space-y-4">
+                  <Skeleton className="h-8 w-3/4" />
+                  <Skeleton className="h-32 w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!project) {
+  if (project?.status === 'failed') {
     return (
-      <div className="container px-4 md:px-6 py-12">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">
-              Project not found.
-            </p>
-            <Button
-              onClick={() => router.push('/')}
-              className="mt-4 w-full"
-            >
-              Go Home
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-background">
+        <div className="container max-w-3xl py-20 text-center space-y-4">
+          <h2 className="text-2xl font-bold">Processing Failed</h2>
+          <p className="text-muted-foreground">{project.errorMessage || "Please try a different video."}</p>
+          <Button onClick={() => router.push('/dashboard')}>Back to Dashboard</Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container px-4 md:px-6 py-12 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <Button
-          variant="ghost"
-          onClick={() => router.push('/dashboard')}
-          className="mb-4"
-        >
-          ← Back to Dashboard
-        </Button>
-        <h1 className="text-3xl font-bold mb-2">
-          {project.title || 'Video Guide'}
-        </h1>
-        <p className="text-muted-foreground">
-          Source: <a href={project.videoSourceUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-            {project.videoSourceUrl}
-          </a>
-        </p>
-      </div>
-
-      {/* Status Card */}
-      {project.status === 'pending' || project.status === 'processing' ? (
-        <Card className="mb-8">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-              <div>
-                <h3 className="font-semibold">
-                  {project.status === 'pending' ? 'Queued for Processing' : 'Processing Video'}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {project.status === 'pending' 
-                    ? 'Your video is in the queue. Processing will begin shortly.'
-                    : 'AI is analyzing your video and creating an article-style guide. This may take a few minutes.'}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : project.status === 'failed' ? (
-        <Card className="mb-8 border-destructive">
-          <CardContent className="pt-6">
-            <h3 className="font-semibold text-destructive mb-2">Processing Failed</h3>
-            <p className="text-sm text-muted-foreground">
-              {project.errorMessage || 'An error occurred while processing your video. Please try again.'}
-            </p>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {/* Article Content */}
-      {project.status === 'completed' && steps.length > 0 && (
-        <>
-          {/* Export Buttons */}
-          <div className="mb-8 flex gap-4 flex-wrap">
-            <Button
+    <div className="min-h-screen bg-background">
+      {/* 顶部导航栏 */}
+      <div className="border-b bg-background/95 backdrop-blur sticky top-0 z-10">
+        <div className="container max-w-5xl h-16 flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')} className="gap-2">
+            <ArrowLeft className="w-4 h-4" /> Back
+          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
               onClick={copyMarkdown}
               disabled={isExporting}
-              variant="outline"
             >
-              {isExporting ? 'Copying...' : 'Copy Markdown'}
+              <Copy className="w-4 h-4 mr-2" /> Copy MD
             </Button>
-            <Button
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => toast({title: "Link copied!", description: window.location.href})}
+            >
+              <Share2 className="w-4 h-4 mr-2" /> Share
+            </Button>
+            <Button 
+              size="sm"
               onClick={exportToMarkdown}
               disabled={isExporting}
-              variant="outline"
             >
-              {isExporting ? 'Exporting...' : 'Download Markdown'}
-            </Button>
-            <Button
-              onClick={exportToHTML}
-              disabled={isExporting}
-              variant="outline"
-            >
-              {isExporting ? 'Exporting...' : 'Download HTML'}
+              <Download className="w-4 h-4 mr-2" /> Export
             </Button>
           </div>
+        </div>
+      </div>
 
-          {/* Article Sections */}
-          <div className="space-y-12">
-            {steps.map((step, index) => (
-              <motion.section
-                key={step.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
-                className="prose prose-lg max-w-none"
-              >
-                <Card className="border-l-4 border-l-primary bg-card">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <CardTitle className="text-2xl font-bold text-foreground">
-                        {step.title}
-                      </CardTitle>
-                      {step.imageUrl && (
-                        <span className="text-xs text-muted-foreground bg-primary/10 text-primary px-2 py-1 rounded whitespace-nowrap">
-                          📷 Has Image
-                        </span>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {step.imageUrl && (
-                      <div className="rounded-lg overflow-hidden border shadow-sm">
-                        <img
-                          src={step.imageUrl}
-                          alt={step.title}
-                          className="w-full h-auto"
-                        />
-                      </div>
-                    )}
-                    <div className="prose prose-lg max-w-none">
-                      <p className="text-foreground leading-relaxed text-base">
-                        {step.description}
-                      </p>
-                    </div>
-                    <div className="pt-2 border-t">
-                      <span className="text-xs text-muted-foreground">
-                        Video timestamp: {formatTime(step.timestampSeconds)}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.section>
-            ))}
+      {/* 文章主体 */}
+      <article className="container max-w-3xl py-12">
+        {/* 文章头部 */}
+        <header className="mb-12 space-y-4 text-center">
+          <h1 className="text-4xl font-bold tracking-tight leading-tight">
+            {project?.title || "Video Guide"}
+          </h1>
+          <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+            <a 
+              href={project?.videoSourceUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:underline text-primary flex items-center"
+            >
+              Watch Original Video
+            </a>
+            <span>•</span>
+            <span>Generated by Vidoc</span>
           </div>
-        </>
-      )}
+        </header>
 
-      {project.status === 'completed' && steps.length === 0 && (
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">
-              No steps found for this project.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+        {/* 步骤内容 - 博客文章流 */}
+        <div className="space-y-16">
+          {steps.map((step, index) => (
+            <motion.section 
+              key={step.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="group relative"
+            >
+              {/* 步骤标题 */}
+              <div className="flex items-baseline gap-4 mb-6">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
+                  {index + 1}
+                </span>
+                <h2 className="text-2xl font-bold text-foreground">{step.title}</h2>
+              </div>
+
+              {/* 核心内容区：如果有图，图在上方 */}
+              <div className="pl-12 space-y-6">
+                {step.imageUrl && (
+                  <div className="rounded-xl overflow-hidden border shadow-sm bg-muted">
+                    <img 
+                      src={step.imageUrl} 
+                      alt={step.title}
+                      className="w-full h-auto object-cover transition-transform hover:scale-[1.02] duration-500" 
+                    />
+                  </div>
+                )}
+                
+                <div className="prose prose-lg dark:prose-invert max-w-none text-foreground leading-relaxed">
+                  <p className="text-base">{step.description}</p>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs font-medium text-primary/70 bg-primary/5 w-fit px-3 py-1 rounded-full">
+                  <Clock className="w-3 h-3" />
+                  Timestamp: {formatTime(step.timestampSeconds)}
+                </div>
+              </div>
+              
+              {/* 连接线 (装饰) */}
+              {index !== steps.length - 1 && (
+                <div className="absolute left-4 top-12 bottom-[-4rem] w-px bg-border/50 -z-10" />
+              )}
+            </motion.section>
+          ))}
+        </div>
+      </article>
     </div>
   );
 }
-

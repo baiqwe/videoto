@@ -5,6 +5,7 @@ import { useCredits } from '@/utils/supabase/subscriptions';
 interface CreateProjectRequest {
   videoSourceUrl: string;
   title?: string;
+  generationMode?: 'text_only' | 'text_with_images';
 }
 
 // Calculate credits cost based on video duration (10 credits per minute, minimum 10 credits)
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CreateProjectRequest = await request.json();
-    const { videoSourceUrl, title } = body;
+    const { videoSourceUrl, title, generationMode = 'text_with_images' } = body;
 
     if (!videoSourceUrl) {
       return NextResponse.json(
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
         video_source_url: videoSourceUrl,
         status: 'pending',
         credits_cost: creditsCost,
+        generation_mode: generationMode,
       })
       .select()
       .single();

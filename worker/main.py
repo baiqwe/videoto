@@ -877,20 +877,35 @@ def process_project(project: Dict):
             # 1. Generation mode is text_with_images AND
             # 2. Section needs screenshot
             if generation_mode == 'text_with_images' and needs_screenshot:
+                screenshot_path = None
+                
+                # --- Attempt 1: OpenCV Smart Screenshot (Sharpness Priority) ---
                 try:
-                    # Extract screenshot using Smart Screenshot
                     screenshot_path = extract_smart_screenshot(video_path, timestamp, project_dir)
+                    print(f"   📸 Smart Screenshot (OpenCV) captured for section {section_order}")
+                except Exception as e_cv:
+                    print(f"   ⚠️ OpenCV extraction failed: {e_cv}")
                     
-                    # Upload to Supabase Storage
-                    image_path = upload_to_supabase_storage(
-                        screenshot_path,
-                        project_id,
-                        section_order
-                    )
-                    print(f"   📸 Smart Screenshot captured for section {section_order}")
-                except Exception as e:
-                    print(f"   ⚠️  Screenshot skipped for section {section_order}: {e}")
-                    # Continue without screenshot
+                    # --- Attempt 2: FFmpeg Fallback (Reliability Priority) ---
+                    try:
+                        print(f"   🔄 Falling back to FFmpeg for section {section_order}...")
+                        # extract_screenshot returns Path, convert to str for consistency
+                        screenshot_path = str(extract_screenshot(video_path, timestamp, project_dir))
+                        print(f"   📸 FFmpeg Screenshot captured for section {section_order}")
+                    except Exception as e_ffmpeg:
+                        print(f"   ❌ All screenshot methods failed: {e_ffmpeg}")
+                        screenshot_path = None
+
+                # Upload if we have a valid screenshot
+                if screenshot_path:
+                    try:
+                        image_path = upload_to_supabase_storage(
+                            Path(screenshot_path),
+                            project_id,
+                            section_order
+                        )
+                    except Exception as e_upload:
+                         print(f"   ☁️ Upload failed: {e_upload}")
             elif generation_mode == 'text_only':
                 # Force no screenshot in text-only mode
                 section['needs_screenshot'] = False

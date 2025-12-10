@@ -119,7 +119,7 @@ def download_video(url: str, output_path: Path) -> Dict:
     # First, download video only
     # Configure yt-dlp options
     ydl_opts_video = {
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]',
         'outtmpl': str(output_path / '%(id)s.%(ext)s'),
         'quiet': False,
         'no_warnings': False,
@@ -132,6 +132,12 @@ def download_video(url: str, output_path: Path) -> Dict:
         # Imitate Android Phone
         'user_agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
     }
+    
+    # Inject Proxy if configured
+    proxy_url = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
+    if proxy_url:
+        print(f"   🛡️ Using Proxy: {proxy_url}")
+        ydl_opts_video['proxy'] = proxy_url
 
     # Anti-bot Measure: Use cookies.txt if available (Best practice)
     # If not, try browser cookies (Local dev fallback)
@@ -175,6 +181,9 @@ def download_video(url: str, output_path: Path) -> Dict:
                 'no_warnings': True,
             }
             
+            if proxy_url:
+                ydl_opts_subs['proxy'] = proxy_url
+            
             with yt_dlp.YoutubeDL(ydl_opts_subs) as ydl:
                 ydl.download([url])
             
@@ -207,6 +216,9 @@ def download_video(url: str, output_path: Path) -> Dict:
                 'quiet': True,
                 'no_warnings': True,
             }
+            
+            if proxy_url:
+                ydl_opts_auto['proxy'] = proxy_url
             
             with yt_dlp.YoutubeDL(ydl_opts_auto) as ydl:
                 ydl.download([url])
@@ -648,13 +660,49 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
                     current_prompt = prompt.replace('{transcript}', transcript_text)
                     response = model.generate_content(current_prompt)
                 else:
-                    # Video Upload Path
-                    current_prompt = prompt.replace('{transcript}', "No transcript. Analyze file.")
-                    video_file = genai.upload_file(path=str(video_path))
-                    while video_file.state.name == "PROCESSING":
+                    # Video/Audio Upload Path
+                    # Optimization: Try to extract and upload AUDIO only first (much faster)
+                    media_file_to_upload = video_path
+                    mime_type = "video/mp4"
+                    
+                    try:
+                        audio_extract_path = video_path.with_suffix('.m4a')
+                        if not audio_extract_path.exists():
+                            print("   🔊 Extracting audio for faster AI analysis...")
+                            # Extract audio using ffmpeg (fast copy if possible, or re-encode)
+                            # -vn: no video, -acodec copy: copy audio stream (fastest)
+                            (
+                                ffmpeg
+                                .input(str(video_path))
+                                .output(str(audio_extract_path), vn=None, acodec='copy')
+                                .overwrite_output()
+                                .run(quiet=True)
+                            )
+                        
+                        if audio_extract_path.exists():
+                            print(f"   ✅ Audio extracted: {audio_extract_path.name}")
+                            media_file_to_upload = audio_extract_path
+                            mime_type = "audio/mp4"
+                    except Exception as e:
+                        print(f"   ⚠️ Audio extraction failed, falling back to video: {e}")
+                        media_file_to_upload = video_path
+
+                    print(f"   📤 Uploading {mime_type} to Gemini: {media_file_to_upload.name}...")
+                    current_prompt = prompt.replace('{transcript}', "No transcript provided. Analyze this media file to extract the content.")
+                    
+                    uploaded_file = genai.upload_file(path=str(media_file_to_upload), mime_type=mime_type)
+                    
+                    # Wait for processing
+                    while uploaded_file.state.name == "PROCESSING":
+                        print("   ⏳ Specific file processing...", end='\r')
                         time.sleep(2)
-                        video_file = genai.get_file(video_file.name)
-                    response = model.generate_content([current_prompt, video_file])
+                        uploaded_file = genai.get_file(uploaded_file.name)
+                    
+                    if uploaded_file.state.name == "FAILED":
+                         raise Exception("Gemini File Processing Failed")
+                         
+                    print(f"   ✅ File ready: {uploaded_file.name}")
+                    response = model.generate_content([current_prompt, uploaded_file])
                 response_text = response.text
 
             else:

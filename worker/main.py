@@ -117,14 +117,20 @@ def download_video(url: str, output_path: Path) -> Dict:
     subtitle_path = None
     
     # First, download video only
+    # Inject Proxy if configured
+    proxy_url = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
+    if proxy_url:
+        print(f"   🛡️ Using Proxy: {proxy_url}")
+
+    # First, download video only
     # Configure yt-dlp options
     ydl_opts_video = {
-        'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]',
+        # Force h264 (avc) for best OpenCV compatibility
+        'format': 'bestvideo[height<=720][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4][height<=720]',
         'outtmpl': str(output_path / '%(id)s.%(ext)s'),
         'quiet': False,
         'no_warnings': False,
         'skip_download': False,
-        # Aria2c disabled (Incompatible with current YouTube blocks)
         'external_downloader': 'native',
         
         # Use Android Client (The ONLY working bypass for 403 Forbidden)
@@ -133,10 +139,7 @@ def download_video(url: str, output_path: Path) -> Dict:
         'user_agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
     }
     
-    # Inject Proxy if configured
-    proxy_url = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
     if proxy_url:
-        print(f"   🛡️ Using Proxy: {proxy_url}")
         ydl_opts_video['proxy'] = proxy_url
 
     # Anti-bot Measure: Use cookies.txt if available (Best practice)
@@ -621,7 +624,8 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
         7. Timestamps should point to the most representative moment of each section
         8. Write content as article paragraphs, not step-by-step instructions
         9. 'needs_screenshot' should be true if the section describes a visual step (UI, code, action)
-        10. 'timestamp_seconds' should be the exact start time of that step
+        10. CRITICAL: You MUST set 'needs_screenshot': true for at least 50% of the steps that involve visual demonstration. DO NOT create a guide with 0 screenshots.
+        11. 'timestamp_seconds' should be the exact start time of that step
         
         Return ONLY valid JSON, no markdown, no code blocks, no explanations.
         """

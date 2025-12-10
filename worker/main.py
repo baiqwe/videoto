@@ -23,6 +23,13 @@ import yt_dlp
 import google.generativeai as genai
 import ffmpeg
 from supabase import create_client, Client
+import google.api_core.exceptions
+import google.api_core.exceptions
+import requests
+import json
+import base64
+import cv2
+import numpy as np
 
 # Load environment variables
 load_dotenv()
@@ -34,8 +41,25 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET") or os.getenv("STORAGE_BUCKET", "guide_images")
 
 # Initialize clients
+# Initialize clients
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-genai.configure(api_key=GEMINI_API_KEY)
+
+# Determine backend mode
+# If USER provided a Base URL (e.g. for aggregator), we use OpenAI Python Client
+# If NOT, we default to Google Native Client
+# Determine backend mode
+# If USER provided a Base URL (e.g. for aggregator), we use generic Requests
+# If NOT, we default to Google Native Client
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://www.dmxapi.cn/v1")
+USE_OPENAI_MODE = True # Force enabled
+
+if OPENAI_BASE_URL and "googleapis.com" not in OPENAI_BASE_URL:
+    print(f"🔌 Using Schema-Compatible API at {OPENAI_BASE_URL} (via requests)")
+    USE_NATIVE_GEMINI = False
+else:
+    print("🔌 Using Native Google Gemini Client")
+    genai.configure(api_key=GEMINI_API_KEY)
+    USE_NATIVE_GEMINI = True
 
 # Create temp directory for processing
 TEMP_DIR = Path(tempfile.gettempdir()) / "vidoc_worker"
@@ -92,14 +116,33 @@ def download_video(url: str, output_path: Path) -> Dict:
     video_path = None
     subtitle_path = None
     
-    # First, download video only (no subtitles to avoid rate limiting)
+    # First, download video only
+    # Configure yt-dlp options
     ydl_opts_video = {
-        'format': 'best[height<=720]',  # Limit to 720p for faster download
+        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'outtmpl': str(output_path / '%(id)s.%(ext)s'),
         'quiet': False,
         'no_warnings': False,
         'skip_download': False,
+        # Aria2c disabled (Incompatible with current YouTube blocks)
+        'external_downloader': 'native',
+        
+        # Use Android Client (The ONLY working bypass for 403 Forbidden)
+        'extractor_args': {'youtube': {'player_client': ['android']}},
+        # Imitate Android Phone
+        'user_agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
     }
+
+    # Anti-bot Measure: Use cookies.txt if available (Best practice)
+    # If not, try browser cookies (Local dev fallback)
+    cookies_file = Path('cookies.txt')
+    if cookies_file.exists():
+        print(f"   🍪 Using cookies from {cookies_file.name}")
+        ydl_opts_video['cookiefile'] = str(cookies_file)
+    else:
+        # Fallback to chrome cookies for local dev if file missing
+        # ydl_opts_video['cookiesfrombrowser'] = ('chrome',) 
+        pass
     
     with yt_dlp.YoutubeDL(ydl_opts_video) as ydl:
         info = ydl.extract_info(url, download=True)
@@ -226,6 +269,107 @@ def parse_vtt_to_text(vtt_path: Optional[Path]) -> str:
         return ""
 
 
+def extract_smart_screenshot(video_path: Path, timestamp: float, output_dir: Path) -> str:
+    """
+    Extract the 'best' (sharpest) screenshot around the timestamp.
+    Scans t-0.5s, t, t+0.5s
+    """
+    if timestamp < 0:
+        timestamp = 0
+        
+    output_filename = f"{video_path.stem}_{int(timestamp * 1000)}.jpg"
+    output_path = output_dir / output_filename
+    
+    # If already exists, return
+    if output_path.exists():
+        return str(output_path)
+        
+    print(f"📸 Smart extracting around {timestamp:.2f}s...")
+    
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        print(f"❌ Failed to open video file in cv2: {video_path}")
+        raise Exception(f"Failed to open video file: {video_path}")
+    
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    target_frame = int(timestamp * fps)
+    
+    candidates = []
+    
+    # Check 3 positions: -0.5s, current, +0.5s
+    offsets = [-int(fps*0.5), 0, int(fps*0.5)]
+    
+    for offset in offsets:
+        f_idx = max(0, target_frame + offset)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, f_idx)
+        ret, frame = cap.read()
+        if ret:
+            # Calculate sharpness using Laplacian variance
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            score = cv2.Laplacian(gray, cv2.CV_64F).var()
+            candidates.append((score, frame))
+        else:
+            print(f"⚠️ Could not read frame at offset {offset}")
+            
+    cap.release()
+    
+    if not candidates:
+        raise Exception(f"Could not extract any frames around {timestamp}")
+        
+    # Sort by score (descending) -> best sharpness first
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    best_score, best_frame = candidates[0]
+    
+    print(f"   ✨ Selected frame with sharpness score: {best_score:.1f}")
+    
+    # Resize if too large (save bandwidth/storage)
+    height, width = best_frame.shape[:2]
+    max_dim = 1280
+    if width > max_dim or height > max_dim:
+        scale = max_dim / max(width, height)
+        best_frame = cv2.resize(best_frame, None, fx=scale, fy=scale)
+    
+    cv2.imwrite(str(output_path), best_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+    
+    return str(output_path)
+
+def transcribe_with_whisper(audio_path: Path) -> str:
+    """Fallback: Transcribe audio using Whisper API"""
+    print(f"🎙️ Transcribing audio with Whisper: {audio_path.name}")
+    try:
+        if not USE_OPENAI_MODE or not OPENAI_BASE_URL:
+             # If we are in native mode, we can't use Whisper API easily unless we init a client
+             # But user is in Aggregator mode, so we use 'requests' as standardized in main.py
+             pass
+        
+        # We need to construct the request manually or use openai client if valid
+        # Given we switched to 'requests' to fix Broken Pipe, we'll use requests here too.
+        
+        headers = {
+            "Authorization": f"Bearer {GEMINI_API_KEY}", 
+        }
+        
+        # Note: Aggregators usually use standard OpenAI 'video/audio' endpoint
+        url = f"{OPENAI_BASE_URL}/audio/transcriptions"
+        
+        with open(audio_path, "rb") as f:
+            files = {
+                "file": (audio_path.name, f, "audio/mp4"),
+                "model": (None, "whisper-1")
+            }
+            response = requests.post(url, headers=headers, files=files, timeout=300)
+            
+        if response.status_code == 200:
+            return response.json().get('text', '')
+        else:
+            print(f"⚠️ Whisper API failed: {response.text}")
+            return ""
+            
+    except Exception as e:
+        print(f"⚠️ Whisper Transcription failed: {e}")
+        return ""
+
+
 def extract_screenshot(video_path: Path, timestamp: float, output_path: Path) -> Path:
     """
     Extract a screenshot from video at specific timestamp using FFmpeg
@@ -242,7 +386,7 @@ def extract_screenshot(video_path: Path, timestamp: float, output_path: Path) ->
             .input(str(video_path), ss=timestamp)
             .output(str(screenshot_path), vframes=1, qscale=2)
             .overwrite_output()
-            .run(quiet=True)
+            .run(capture_stdout=True, capture_stderr=True)
         )
         
         if not screenshot_path.exists():
@@ -250,6 +394,10 @@ def extract_screenshot(video_path: Path, timestamp: float, output_path: Path) ->
         
         return screenshot_path
         
+    except ffmpeg.Error as e:
+        stderr_output = e.stderr.decode('utf-8') if e.stderr else 'No error output'
+        print(f"❌ FFmpeg error: {stderr_output}")
+        raise Exception(f"FFmpeg failed: {stderr_output[:200]}")
     except Exception as e:
         print(f"❌ Screenshot failed: {e}")
         raise
@@ -333,26 +481,26 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
         - summary: overall video summary
         - sections: List of section dictionaries with content and screenshot flags
     """
-    # Initialize Gemini model
-    # Try gemini-1.5-pro first (supports video), then gemini-1.5-flash, then gemini-pro
-    model = None
-    model_name = None
-    
-    for candidate in ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro']:
-        try:
-            model = genai.GenerativeModel(candidate)
-            model_name = candidate
-            print(f"✅ Using {candidate} model")
-            break
-        except Exception as e:
-            print(f"⚠️  {candidate} not available: {e}")
-            continue
-    
-    if model is None:
-        raise Exception("No Gemini model available. Please check your API key and model access.")
     
     # 1. Try to get transcript first (preferred method)
     transcript_text = parse_vtt_to_text(subtitle_path)
+    
+    # 2. Whisper Fallback
+    if not transcript_text:
+        print("⚠️ No VTT subtitles found. Attempting Whisper transcription...")
+        # Find audio file (usually same name as video but m4a)
+        audio_candidates = list(video_path.parent.glob(f"{video_path.stem}*.m4a"))
+        if not audio_candidates:
+             # Try extracting audio if not found? 
+             # For now, just assume yt-dlp downloaded it or the video file itself can be sent (if small enough)
+             # Sending large video file to whisper size limit is 25MB usually.
+             pass
+        else:
+             audio_path = audio_candidates[0]
+             transcript_text = transcribe_with_whisper(audio_path)
+             if transcript_text:
+                 print("✅ Whisper transcription successful!")
+    
     has_transcript = bool(transcript_text)
     
     # 2. Get prompt template (adjust based on generation mode)
@@ -474,101 +622,133 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
     prompt = prompt.replace('{duration_seconds:.1f}', f'{duration:.1f}')
     prompt = prompt.replace('{duration_seconds}', f'{duration:.1f}')
     prompt = prompt.replace('{duration}', str(duration))
+
+    # --- REFACTORED GENERATION LOGIC ---
+
+    # Adjust model names for Aggregator if needed
+    # Aggregators usually support 'gemini-1.5-flash' directly.
+    candidate_models = [
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+        'gpt-4o', # Fallback if gemini fails on aggregator
+        'gpt-3.5-turbo'
+    ]
     
-    try:
-        if has_transcript:
-            # A. Transcript mode (fast, stable)
-            print("🚀 Sending TRANSCRIPT to Gemini (text-only mode)...")
-            prompt = prompt.replace('{transcript}', transcript_text)
-            response = model.generate_content(
-                prompt,
-                request_options={"timeout": 300}  # 5 minute timeout for text
-            )
-        else:
-            # B. Video mode (fallback, slower and may fail)
-            # Only gemini-1.5-pro supports video upload, gemini-pro does not
-            print("⚠️  No transcript found. Attempting video upload to Gemini...")
-            prompt = prompt.replace('{transcript}', "No transcript provided. Please analyze the video visual and audio.")
-            
-            # Check if we're using a model that supports video (1.5 series)
-            if '1.5' not in str(model_name):
-                raise Exception(
-                    f"Video analysis requires gemini-1.5-pro or gemini-1.5-flash, but current model is {model_name}. "
-                    "Please ensure your API key has access to gemini-1.5 models, or try a video with subtitles."
-                )
-            
-            try:
-                video_file = genai.upload_file(path=str(video_path), display_name=video_path.name)
-                print(f"   Video uploading: {video_file.uri}")
-                
-                # Wait for processing
-                while video_file.state.name == "PROCESSING":
-                    print(".", end="", flush=True)
-                    time.sleep(2)
-                    video_file = genai.get_file(video_file.name)
-                
-                if video_file.state.name == "FAILED":
-                    raise Exception("Gemini video processing failed.")
-                
-                print("   Video ready. Generating content...")
-                response = model.generate_content(
-                    [prompt, video_file],
-                    request_options={"timeout": 600}  # 10 minute timeout
-                )
-                
-                # Clean up uploaded file
-                try:
-                    genai.delete_file(video_file.name)
-                    print("   Cleaned up uploaded video file")
-                except:
-                    pass
-            except Exception as e:
-                error_str = str(e)
-                if '404' in error_str or 'not found' in error_str.lower() or 'not supported' in error_str.lower():
-                    raise Exception(
-                        f"Gemini model '{model_name}' does not support video analysis with your API key. "
-                        "This usually means:\n"
-                        "1. Your API key doesn't have access to gemini-1.5-pro or gemini-1.5-flash\n"
-                        "2. The model requires a different API version\n"
-                        "3. Try using a video with subtitles enabled (YouTube auto-generated subtitles work)\n\n"
-                        f"Error details: {error_str}"
-                    )
-                raise
-        
-        # Parse JSON response
+    last_exception = None
+
+    for model_name in candidate_models:
+        print(f"🔄 Attempting analysis with model: {model_name} (Native: {USE_NATIVE_GEMINI})")
         try:
-            text = response.text.strip()
-            # Clean Markdown markers
-            if '```json' in text:
-                text = text.split('```json')[1].split('```')[0].strip()
-            elif '```' in text:
-                text = text.split('```')[1].split('```')[0].strip()
+            response_text = ""
             
-            data = json.loads(text)
+            if USE_NATIVE_GEMINI:
+                # --- GOOGLE NATIVE PATH ---
+                model = genai.GenerativeModel(model_name)
+                if has_transcript:
+                    current_prompt = prompt.replace('{transcript}', transcript_text)
+                    response = model.generate_content(current_prompt)
+                else:
+                    # Video Upload Path
+                    current_prompt = prompt.replace('{transcript}', "No transcript. Analyze file.")
+                    video_file = genai.upload_file(path=str(video_path))
+                    while video_file.state.name == "PROCESSING":
+                        time.sleep(2)
+                        video_file = genai.get_file(video_file.name)
+                    response = model.generate_content([current_prompt, video_file])
+                response_text = response.text
+
+            else:
+                # --- OPENAI / AGGREGATOR PATH (via requests) ---
+                messages = []
+                
+                if has_transcript:
+                    print("   📄 Using Transcript Mode (Requests/OpenAI Protocol)")
+                    final_prompt = prompt.replace('{transcript}', transcript_text)
+                    messages = [
+                        {"role": "system", "content": "You are a helpful assistant. Return valid JSON only."},
+                        {"role": "user", "content": final_prompt}
+                    ]
+                else:
+                    # Vision Fallback for Aggregator
+                    print("   🖼️  No transcript. Using Vision Mode (Screenshots) for Aggregator...")
+                    frames = []
+                    for t in [duration*0.2, duration*0.5, duration*0.8]:
+                        f_path = extract_smart_screenshot(video_path, t, video_path.parent) # Use Smart Screenshot
+                        with open(f_path, "rb") as image_file:
+                            b64 = base64.b64encode(image_file.read()).decode('utf-8')
+                            frames.append(b64)
+                    
+                    final_prompt = prompt.replace('{transcript}', "No transcript. Analyze these 3 key frames from the video.")
+                    
+                    content_payload = [{"type": "text", "text": final_prompt}]
+                    for b64_img in frames:
+                        content_payload.append({
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{b64_img}"}
+                        })
+                    
+                    messages = [
+                        {"role": "system", "content": "Return valid JSON."},
+                        {"role": "user", "content": content_payload}
+                    ]
+
+                # Manual Requests Call
+                headers = {
+                    "Authorization": f"Bearer {GEMINI_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": model_name,
+                    "messages": messages,
+                    "response_format": {"type": "json_object"}
+                }
+                
+                print(f"   📡 Sending request to {OPENAI_BASE_URL}/chat/completions...")
+                response = requests.post(
+                    f"{OPENAI_BASE_URL}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=120  # Longer timeout for aggregation
+                )
+                
+                if response.status_code != 200:
+                    raise Exception(f"API Error {response.status_code}: {response.text}")
+                    
+                resp_json = response.json()
+                response_text = resp_json['choices'][0]['message']['content']
+
+            # Parse JSON response common logic
+            try:
+                text = response_text.strip()
+                if '```json' in text:
+                    text = text.split('```json')[1].split('```')[0].strip()
+                elif '```' in text:
+                    text = text.split('```')[1].split('```')[0].strip()
+                
+                data = json.loads(text)
+                if not isinstance(data, dict) or 'sections' not in data:
+                    raise ValueError("Response structure invalid")
+                    
+                # Fix timestamps and needs_screenshot
+                for section in data['sections']:
+                    if section.get('timestamp_seconds', 0) > duration:
+                        section['timestamp_seconds'] = max(5.0, duration - 10)
+                    section['needs_screenshot'] = bool(section.get('needs_screenshot', False))
+                
+                print(f"✅ Successfully parsed {len(data['sections'])} sections using {model_name}")
+                return data
+
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON Error: {e}")
+                raise e
+
+        except Exception as e:
+            print(f"⚠️  Model {model_name} failed: {e}")
+            last_exception = e
+            continue
             
-            if not isinstance(data, dict) or 'sections' not in data:
-                raise ValueError("Response does not have expected structure")
-            
-            # Validate and fix timestamps
-            for section in data['sections']:
-                if section['timestamp_seconds'] > duration:
-                    section['timestamp_seconds'] = max(5.0, duration - 10)
-                if section['timestamp_seconds'] < 0:
-                    section['timestamp_seconds'] = 5.0
-                # Ensure needs_screenshot is boolean
-                section['needs_screenshot'] = bool(section.get('needs_screenshot', False))
-            
-            print(f"✅ Successfully parsed {len(data.get('sections', []))} sections")
-            return data
-            
-        except json.JSONDecodeError as e:
-            print(f"❌ JSON Parse Error: {e}")
-            print(f"Raw response preview: {response.text[:500] if hasattr(response, 'text') else 'N/A'}")
-            raise Exception("AI response was not valid JSON")
-        
-    except Exception as e:
-        print(f"❌ Analysis failed: {e}")
-        raise
+    print("❌ All models failed.")
+    raise last_exception or Exception("All models failed")
 
 
 def process_project(project: Dict):
@@ -632,6 +812,7 @@ def process_project(project: Dict):
             section_order = section['section_order']
             timestamp = section['timestamp_seconds']
             needs_screenshot = section.get('needs_screenshot', False)
+            print(f"DEBUG: Section {section_order} timestamp={timestamp} needs_screenshot={needs_screenshot} mode={generation_mode}")
             
             # Ensure timestamp is within video duration
             if timestamp > duration:
@@ -640,12 +821,13 @@ def process_project(project: Dict):
             image_path = None
             
             # Extract screenshot only if:
+            # Extract screenshot only if:
             # 1. Generation mode is text_with_images AND
             # 2. Section needs screenshot
             if generation_mode == 'text_with_images' and needs_screenshot:
                 try:
-                    # Extract screenshot
-                    screenshot_path = extract_screenshot(video_path, timestamp, project_dir)
+                    # Extract screenshot using Smart Screenshot
+                    screenshot_path = extract_smart_screenshot(video_path, timestamp, project_dir)
                     
                     # Upload to Supabase Storage
                     image_path = upload_to_supabase_storage(
@@ -653,7 +835,7 @@ def process_project(project: Dict):
                         project_id,
                         section_order
                     )
-                    print(f"   📸 Screenshot captured for section {section_order}")
+                    print(f"   📸 Smart Screenshot captured for section {section_order}")
                 except Exception as e:
                     print(f"   ⚠️  Screenshot skipped for section {section_order}: {e}")
                     # Continue without screenshot
@@ -684,6 +866,11 @@ def process_project(project: Dict):
     except Exception as e:
         print(f"\n❌ Error processing project {project_id}: {e}")
         
+        # Print full traceback for debugging
+        import traceback
+        print("\n📋 Full error traceback:")
+        traceback.print_exc()
+        
         # Update project status to failed
         try:
             supabase.table('projects').update({
@@ -697,8 +884,9 @@ def process_project(project: Dict):
         # Cleanup temp files
         try:
             if project_dir.exists():
-                shutil.rmtree(project_dir)
-                print(f"🧹 Cleaned up temp directory for {project_id}")
+                # shutil.rmtree(project_dir)
+                # print(f"🧹 Cleaned up temp directory for {project_id}")
+                pass
         except Exception as e:
             print(f"⚠️  Error cleaning up temp directory: {e}")
 

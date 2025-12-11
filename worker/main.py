@@ -573,7 +573,7 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
         """
     else:  # text_with_images
         default_prompt_template = """
-        You are an expert technical writer. Convert this video transcript into a structured, engaging blog post.
+        You are an expert technical writer creating a detailed, step-by-step tutorial from a video transcript.
         
         Transcript:
         {transcript}
@@ -583,52 +583,46 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
         - Duration: {duration_formatted} ({duration_seconds:.1f} seconds)
         
         Your task:
-        1. First, provide a comprehensive summary of the entire video (2-3 paragraphs)
-        2. Then, break down the content into 4-10 key sections that form a cohesive article
-        3. For each section, identify if it needs a screenshot (core/visual moments)
+        1. **Summary**: Create a structured summary with:
+           - A brief overview paragraph (2-3 sentences).
+           - A "Key Takeaways" list with 3-5 bullet points highlighting the most important concepts or results.
+           
+        2. **Step-by-Step Guide**: Break the video down into a granular, easy-to-follow guide.
+           - Target **10-20 distinct steps** (or more for long videos). Do NOT compress multiple actions into one step.
+           - Each step should represent a single, clear action or concept.
+           
+        3. **Visuals**: You MUST strictly identify where screenshots are needed.
+           - **Rule**: If a step involves *any* visual element (seeing code, UI, gameplay, location, item stats, expected result), you MUST set `needs_screenshot: true`.
+           - **Goal**: We want a "visual-heavy" guide. It is better to have too many screenshots than too few. Aim for >70% of steps having a screenshot.
         
         Return a JSON object with this structure:
         {{
-            "summary": "A comprehensive 2-3 paragraph summary of the entire video content, covering main topics, key points, and overall message.",
+            "summary": "## Overview\\n[Brief paragraph]\\n\\n## Key Takeaways\\n- [Point 1]\\n- [Point 2]...",
             "sections": [
                 {{
                     "section_order": 1,
-                    "title": "Actionable, Specific Heading (e.g. 'Setting up the environment')",
-                    "content": "Detailed explanation of this step. Use 3-5 sentences. Be specific.",
+                    "title": "Action-Oriented Title (e.g. 'Open the settings menu')",
+                    "content": "Detailed instruction for this specific step. Explain exactly what to do and what to look for. Use 2-4 sentences.",
                     "timestamp_seconds": 10.5,
                     "needs_screenshot": true
                 }},
                 {{
                     "section_order": 2,
-                    "title": "Another section",
-                    "content": "More detailed content...",
-                    "timestamp_seconds": 120.0,
-                    "needs_screenshot": false
+                    "title": "Select the 'Advanced' tab",
+                    "content": "Click on the Advanced tab in the top right corner...",
+                    "timestamp_seconds": 15.0,
+                    "needs_screenshot": true
                 }}
             ]
         }}
         
         Guidelines:
-        1. Summary should capture the essence of the entire video
-        2. Sections should flow logically as an article, not just a list of steps
-        3. Each section should have substantial content (2-4 sentences minimum)
-        4. Mark needs_screenshot=true for:
-           - Visual demonstrations
-           - Important UI/interface moments
-           - Key concepts that benefit from visual aid
-           - Core action moments
-        5. Mark needs_screenshot=false for:
-           - Explanatory/narrative sections
-           - Introduction/overview parts
-           - Summary/conclusion sections
-        6. Aim for 4-10 sections depending on video length (roughly 1 section per 2-5 minutes)
-        7. Timestamps should point to the most representative moment of each section
-        8. Write content as article paragraphs, not step-by-step instructions
-        9. 'needs_screenshot' should be true if the section describes a visual step (UI, code, action)
-        10. CRITICAL: You MUST set 'needs_screenshot': true for at least 50% of the steps that involve visual demonstration. DO NOT create a guide with 0 screenshots.
-        11. 'timestamp_seconds' should be the exact start time of that step
+        1. **Granularity is Key**: Don't say "Install and configure the app". Break it down: 1. Download, 2. Install, 3. Open settings, 4. Configure.
+        2. **Content**: Write directly to the user ("Click here...", "You will see...").
+        3. **Timestamps**: Must be precise. Point to the EXACT moment the action happens.
+        4. **Screenshots**: BE AGGRESSIVE. If in doubt, set needs_screenshot=true.
         
-        Return ONLY valid JSON, no markdown, no code blocks, no explanations.
+        Return ONLY valid JSON, no markdown formatting (except inside the summary string), no code blocks.
         """
     
     prompt_template = get_dynamic_prompt(default_prompt_template, 'gemini_video_prompt')

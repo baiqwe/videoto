@@ -131,6 +131,7 @@ def download_video(url: str, output_path: Path) -> Dict:
         'quiet': False,
         'no_warnings': False,
         'skip_download': False,
+        'nopart': True, # Write directly to output file, avoid rename errors
         'external_downloader': 'native',
         
         # Use Android Client (The ONLY working bypass for 403 Forbidden)

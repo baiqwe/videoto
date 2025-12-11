@@ -15,7 +15,8 @@ export default async function Login(props: { searchParams: Promise<Message> }) {
   const signInWithGoogle = async () => {
     "use server";
     const supabase = await createClient();
-    const origin = process.env.NEXT_PUBLIC_SITE_URL;
+    const headersList = await headers();
+    const origin = headersList.get("origin") || process.env.NEXT_PUBLIC_SITE_URL;
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",

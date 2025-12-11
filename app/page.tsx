@@ -64,7 +64,7 @@ export default function Home() {
         title: "Project created!",
         description: data.message || "Your video is being processed. This may take a few minutes.",
       });
-      
+
       // Navigate to project page
       router.push(`/guides/${data.project.id}`);
     } catch (error) {
@@ -82,49 +82,49 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      
+
       {/* 1. Hero Section - The "Hook" */}
       <section className="relative pt-20 pb-32 overflow-hidden">
         {/* 背景装饰 */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-gradient-to-b from-primary/5 to-transparent -z-10" />
-        
+
         <div className="container px-4 md:px-6">
           <div className="flex flex-col items-center text-center space-y-8">
-            
+
             {/* 品牌标签 */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm font-medium text-primary"
             >
               <span className="flex h-2 w-2 rounded-full bg-primary mr-2"></span>
-              Introducing Vidoc 1.0
+              Introducing StepSnip 1.0
             </motion.div>
 
             {/* 主标题 - SEO 核心 */}
-            <motion.h1 
+            <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
               className="text-4xl font-bold tracking-tight sm:text-6xl lg:text-7xl max-w-4xl"
             >
-              Turn Video Content into <br/>
+              Turn Video Content into <br />
               <span className="text-primary">Structured Documentation</span>
             </motion.h1>
 
             {/* 副标题 - 痛点描述 */}
-            <motion.p 
+            <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
               className="text-xl text-muted-foreground max-w-2xl"
             >
-              Vidoc transforms YouTube tutorials into clean, step-by-step articles with screenshots. 
+              StepSnip transforms YouTube tutorials into clean, step-by-step articles with screenshots.
               Perfect for developers, writers, and learners.
             </motion.p>
 
             {/* 核心功能区 - Video Input */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
@@ -167,7 +167,7 @@ export default function Home() {
                 ))}
               </div>
             </div>
-            
+
             {/* Visual Demo Mockup */}
             <div className="relative group">
               <div className="absolute -inset-1 bg-gradient-to-r from-primary to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
@@ -205,21 +205,21 @@ export default function Home() {
         <div className="container px-4 md:px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold">Built for Content Creators & Builders</h2>
-            <p className="text-muted-foreground mt-4">Why users choose Vidoc for their workflow</p>
+            <p className="text-muted-foreground mt-4">Why users choose StepSnip for their workflow</p>
           </div>
-          
+
           <div className="grid md:grid-cols-3 gap-8">
-            <UseCaseCard 
+            <UseCaseCard
               icon={<FileText className="w-6 h-6" />}
               title="For Bloggers"
               desc="Repurpose your YouTube content into SEO-friendly blog posts in seconds. Multiply your traffic sources."
             />
-            <UseCaseCard 
+            <UseCaseCard
               icon={<Zap className="w-6 h-6" />}
               title="For Developers"
               desc="Convert coding tutorials into copy-pasteable documentation. Stop pausing video to read code."
             />
-            <UseCaseCard 
+            <UseCaseCard
               icon={<ImageIcon className="w-6 h-6" />}
               title="For Students"
               desc="Turn 1-hour lectures into 5-minute reading summaries with key slides captured automatically."
@@ -233,17 +233,17 @@ export default function Home() {
         <div className="container px-4 md:px-6 max-w-4xl">
           <h2 className="text-2xl font-bold mb-8">Frequently Asked Questions</h2>
           <div className="space-y-6">
-            <FAQItem 
-              q="How does Vidoc convert video to text?"
-              a="Vidoc uses advanced AI (Gemini 1.5 Pro) to analyze both the visual and audio components of a YouTube video. It then synthesizes this information into a structured article, capturing screenshots at key moments."
+            <FAQItem
+              q="How does StepSnip convert video to text?"
+              a="StepSnip uses advanced AI (Gemini 1.5 Pro) to analyze both the visual and audio components of a YouTube video. It then synthesizes this information into a structured article, capturing screenshots at key moments."
             />
-            <FAQItem 
+            <FAQItem
               q="Can I use this for SEO content generation?"
-              a="Absolutely. Vidoc generates clean, structured Markdown that is perfect for blog posts. You can edit the output and publish it to boost your site's SEO."
+              a="Absolutely. StepSnip generates clean, structured Markdown that is perfect for blog posts. You can edit the output and publish it to boost your site's SEO."
             />
-            <FAQItem 
-              q="What is the difference between a transcript and a Vidoc guide?"
-              a="A transcript is just raw text. A Vidoc guide is a curated article with headings, paragraphs, and visual screenshots, designed to be read, not just searched."
+            <FAQItem
+              q="What is the difference between a transcript and a StepSnip guide?"
+              a="A transcript is just raw text. A StepSnip guide is a curated article with headings, paragraphs, and visual screenshots, designed to be read, not just searched."
             />
           </div>
         </div>
@@ -253,7 +253,7 @@ export default function Home() {
       <section className="py-20 border-t">
         <div className="container px-4 text-center">
           <h2 className="text-3xl font-bold mb-6">Ready to transform your content?</h2>
-          <button 
+          <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="bg-primary text-primary-foreground px-8 py-4 rounded-lg font-medium text-lg hover:opacity-90 transition-opacity"
           >

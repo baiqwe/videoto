@@ -31,7 +31,7 @@ const formSchema = z.object({
     message: "Please enter a valid YouTube URL.",
   }),
   title: z.string().optional(),
-  generationMode: z.enum(['text_only', 'text_with_images']).default('text_with_images'),
+  generationMode: z.enum(['text_only', 'text_with_images']),
 });
 
 interface VideoInputFormProps {
@@ -43,7 +43,7 @@ export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormP
   const { toast } = useToast();
   const { user } = useUser();
   const { credits: userCredits, loading: creditsLoading } = useCredits();
-  
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -84,7 +84,7 @@ export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormP
             Paste a YouTube URL and we'll automatically extract key steps with screenshots.
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* YouTube URL Field */}
@@ -181,8 +181,8 @@ export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormP
             </div>
 
             {/* Submit Button */}
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={isCreating || (user && !hasEnoughCredits) || !user}
               className="w-full h-14 text-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200"
             >

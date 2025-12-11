@@ -21,7 +21,7 @@ export default function Header({ user }: HeaderProps) {
   const pathname = usePathname();
   const isDashboard = pathname?.startsWith("/dashboard");
 
-  // Main navigation items for Vidoc
+  // Main navigation items for StepSnip
   const mainNavItems: NavItem[] = [
     { label: "Home", href: "/" },
     { label: "Dashboard", href: "/dashboard" },
@@ -40,7 +40,7 @@ export default function Header({ user }: HeaderProps) {
         <div className="flex items-center">
           <Logo />
         </div>
-        
+
         {/* Centered Navigation */}
         <nav className="hidden md:flex items-center gap-8 absolute left-1/2 transform -translate-x-1/2">
           {navItems.map((item) => (

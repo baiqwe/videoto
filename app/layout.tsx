@@ -13,10 +13,10 @@ const baseUrl = process.env.BASE_URL
 export const metadata = {
   metadataBase: new URL(baseUrl),
   title: {
-    default: "Vidoc - Turn YouTube Videos into Articles & Guides with AI",
-    template: "%s | Vidoc"
+    default: "StepSnip - Turn YouTube Videos into Articles & Guides with AI",
+    template: "%s | StepSnip"
   },
-  description: "Stop pausing and typing. Vidoc automatically converts YouTube videos into structured articles, step-by-step guides, and blog posts with screenshots. Turn watch time into read time.",
+  description: "Stop pausing and typing. StepSnip automatically converts YouTube videos into structured articles, step-by-step guides, and blog posts with screenshots. Turn watch time into read time.",
   keywords: [
     "video to text",
     "YouTube to article",
@@ -26,19 +26,26 @@ export const metadata = {
     "video to blog",
     "video summarizer",
     "automated documentation",
-    "Vidoc"
+    "StepSnip"
   ],
   openGraph: {
-    title: "Vidoc - Turn Videos into Docs",
+    title: "StepSnip - Turn Videos into Docs",
     description: "Instantly create illustrated guides from any video. Transform YouTube tutorials into structured articles with AI-powered analysis.",
     type: "website",
     locale: "en_US",
     url: baseUrl,
-    siteName: "Vidoc",
+    siteName: "StepSnip",
+  },
+  alternates: {
+    canonical: './',
+    languages: {
+      'en': './',
+      'x-default': './'
+    },
   },
   twitter: {
     card: "summary_large_image",
-    title: "Vidoc - Turn Videos into Docs",
+    title: "StepSnip - Turn Videos into Docs",
     description: "Instantly create illustrated guides from any video. Transform YouTube tutorials into structured articles with AI.",
   },
 };

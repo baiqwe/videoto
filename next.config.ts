@@ -4,7 +4,10 @@ const nextConfig: NextConfig = {
   devIndicators: {
     appIsrStatus: false,
   },
-  
+  images: {
+    unoptimized: true,
+  },
+
   // Configure webpack to ignore the external folder
   webpack: (config: any) => {
     config.watchOptions = {

@@ -8,21 +8,21 @@ const EXAMPLES = [
         id: "de20af43-61bf-4007-99d8-bff3757cd8b7",
         title: "Build a Next.js App",
         category: "Coding",
-        image: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/guide_images/projects/de20af43-61bf-4007-99d8-bff3757cd8b7/step_1.jpg`,
+        image: "/images/examples/coding.jpg",
         steps: 14
     },
     {
         id: "79555d80-7f5f-417e-8d82-fb325597b911",
         title: "Mastering Photoshop Layers",
         category: "Design",
-        image: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/guide_images/projects/79555d80-7f5f-417e-8d82-fb325597b911/step_4.jpg`,
+        image: "/images/examples/design.jpg",
         steps: 10
     },
     {
         id: "414083b5-1e99-460b-bc88-0e27a166f447",
         title: "Fix WiFi Connection Issues",
         category: "Tech Support",
-        image: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/guide_images/projects/414083b5-1e99-460b-bc88-0e27a166f447/step_1.jpg`,
+        image: "/images/examples/wifi.jpg",
         steps: 6
     }
 ];
@@ -44,9 +44,16 @@ export function ExampleShowcase() {
                         <Link key={i} href={`/guides/${example.id}`} className="group">
                             <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-primary/10">
                                 <div className="aspect-video bg-muted relative flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
-                                    <PlayCircle className="w-12 h-12 text-muted-foreground/50" />
+                                    {example.image && (
+                                        <img
+                                            src={example.image}
+                                            alt={example.title}
+                                            className="absolute inset-0 w-full h-full object-cover"
+                                        />
+                                    )}
+                                    <PlayCircle className="w-12 h-12 text-white/80 z-10 relative drop-shadow-md" />
 
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
                                         <span className="text-white font-medium flex items-center gap-2">
                                             View Guide <ArrowRight className="w-4 h-4" />
                                         </span>

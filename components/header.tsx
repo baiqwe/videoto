@@ -24,7 +24,7 @@ export default function Header({ user }: HeaderProps) {
   // Main navigation items for StepSnip
   const mainNavItems: NavItem[] = [
     { label: "Home", href: "/" },
-    { label: "Dashboard", href: "/dashboard" },
+    // { label: "Dashboard", href: "/dashboard" }, // Hidden for MVP
     { label: "About", href: "/about" },
   ];
 
@@ -68,9 +68,9 @@ export default function Header({ user }: HeaderProps) {
                   <Button asChild size="sm" variant="default">
                     <Link href="/profile">Profile</Link>
                   </Button>
-                  <Button asChild size="sm" variant="outline">
+                  {/* <Button asChild size="sm" variant="outline">
                     <Link href="/dashboard">Dashboard</Link>
-                  </Button>
+                  </Button> */}
                 </>
               )}
               <form action={signOutAction}>

@@ -15,9 +15,7 @@ export async function POST(request: NextRequest) {
         // Supabase simple insert will error on unique constraint violation
         const { error } = await supabase
             .from('waitlist')
-            .insert({ email })
-            .select()
-            .single();
+            .insert({ email });
 
         if (error) {
             // If unique violation (code 23505), return success to avoid leaking/confusing

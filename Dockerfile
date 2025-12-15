@@ -1,5 +1,5 @@
 # 使用官方 Python 轻量级镜像
-FROM python:3.9-slim
+FROM python:3.10-slim
 
 # 1. 安装系统依赖
 # ffmpeg: 视频处理必须

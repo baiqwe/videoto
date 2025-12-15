@@ -269,13 +269,17 @@ export default function GuideClientPage({
                         >
                             <Share2 className="w-4 h-4 mr-2" /> Share
                         </Button>
-                        <Button
-                            size="sm"
-                            onClick={exportToMarkdown}
-                            disabled={isExporting}
-                        >
-                            <Download className="w-4 h-4 mr-2" /> Export
-                        </Button>
+
+                        {/* 暂时隐藏 PDF 导出按钮，等待后续支持 */}
+                        {/* <Button
+                    size="sm"
+                    onClick={exportToMarkdown}
+                    disabled={isExporting}
+                  >
+                    <Download className="w-4 h-4 mr-2" /> Export PDF
+                  </Button> 
+                  */}
+
                     </div>
                 </div>
             </div>

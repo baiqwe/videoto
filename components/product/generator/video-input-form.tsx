@@ -169,16 +169,7 @@ export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormP
               </RadioGroup>
             </div>
 
-            {/* Info Box */}
-            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-              <h4 className="font-medium text-sm">How it works:</h4>
-              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                <li>AI analyzes your video and identifies key steps</li>
-                <li>Automatically captures screenshots at optimal moments</li>
-                <li>Generates a step-by-step guide with images and descriptions</li>
-                <li>Processing typically takes 2-5 minutes</li>
-              </ul>
-            </div>
+
 
             {/* Submit Button */}
             <Button

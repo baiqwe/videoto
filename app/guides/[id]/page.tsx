@@ -1,5 +1,5 @@
 import { Metadata, ResolvingMetadata } from "next";
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { notFound } from "next/navigation";
 import GuideClientPage from "./guide-client";
 
@@ -9,7 +9,7 @@ export async function generateMetadata(
   parent: ResolvingMetadata
 ): Promise<Metadata> {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: project } = await supabase
     .from("projects")
@@ -37,7 +37,7 @@ export async function generateMetadata(
 // 2. 服务端数据获取
 export default async function GuidePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // 获取项目信息
   const { data: project } = await supabase

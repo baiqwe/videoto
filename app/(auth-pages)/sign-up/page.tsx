@@ -44,7 +44,7 @@ export default async function SignUp(props: {
       <div className="flex flex-col space-y-2 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
         <p className="text-sm text-muted-foreground">
-          Sign up to access global authentication and payment solutions
+          Sign up now and get <span className="text-primary font-medium">30 free credits</span> to create your first 3 guides.
         </p>
       </div>
       <div className="grid gap-6">
@@ -116,7 +116,7 @@ export default async function SignUp(props: {
                 fill="#EA4335"
               />
             </svg>
-            Sign up with Google
+            Sign up with Google (Get 30 Free Credits)
           </Button>
         </form>
         <div className="text-sm text-muted-foreground text-center">

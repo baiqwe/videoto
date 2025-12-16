@@ -93,7 +93,7 @@ export default function Home() {
               className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm font-medium text-primary"
             >
               <span className="flex h-2 w-2 rounded-full bg-primary mr-2"></span>
-              Live Demo Available
+              🎉 New: Get 30 Free Credits on Sign Up
             </motion.div>
 
             <motion.h1
@@ -125,8 +125,8 @@ export default function Home() {
               <div className="bg-card p-2 rounded-xl shadow-lg border relative z-10">
                 <VideoInputForm onCreate={handleCreate} isCreating={isCreating} />
               </div>
-              <p className="text-xs text-muted-foreground mt-4">
-                Try a YouTube URL like: tutorials, how-to guides, or lectures.
+              <p className="text-sm text-muted-foreground mt-4 font-medium">
+                Try a YouTube URL like: tutorials, how-to guides, or lectures. <span className="text-primary">No credit card required.</span>
               </p>
             </motion.div>
           </div>

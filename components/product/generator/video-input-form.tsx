@@ -30,7 +30,7 @@ interface VideoInputFormProps {
 
 export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormProps) {
   const { toast } = useToast();
-  // 🟢 修复：将 isLoading 改为 loading
+  // 🟢 确保使用正确的 loading 属性名
   const { user, loading: userLoading } = useUser();
   const { credits: userCredits } = useCredits();
 
@@ -176,10 +176,10 @@ export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormP
               </RadioGroup>
             </div>
 
-            {/* 🟢 3. 提交按钮 (文案与状态优化) */}
+            {/* 🟢 3. 提交按钮 (状态修复版) */}
             <Button
               type="submit"
-              disabled={isCreating || (user && !hasEnoughCredits)}
+              disabled={isCreating || (!!user && !hasEnoughCredits)}
               className={`w-full h-14 text-lg font-semibold transition-all duration-200 shadow-md ${!user ? 'bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90' : ''
                 }`}
             >

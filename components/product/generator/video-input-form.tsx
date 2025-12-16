@@ -5,8 +5,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
-import { Gift, Sparkles, Zap, Lock } from "lucide-react"; // 🟢 引入图标
-import Link from "next/link"; // 🟢 引入 Link
+import { Gift, Sparkles, Zap, Lock } from "lucide-react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,8 @@ interface VideoInputFormProps {
 
 export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormProps) {
   const { toast } = useToast();
-  const { user, isLoading: userLoading } = useUser();
+  // 🟢 修复：将 isLoading 改为 loading
+  const { user, loading: userLoading } = useUser();
   const { credits: userCredits } = useCredits();
 
   const form = useForm({
@@ -58,7 +59,7 @@ export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormP
       transition={{ duration: 0.5 }}
       className="w-full max-w-2xl mx-auto"
     >
-      {/* 🟢 1. 强力诱导 Banner (仅未登录显示) */}
+      {/* 🟢 1. 强力诱导 Banner (仅未登录且加载完成后显示) */}
       {!user && !userLoading && (
         <div className="mb-6 relative overflow-hidden rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm">
           <div className="flex items-center gap-4">
@@ -150,7 +151,7 @@ export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormP
               />
             </div>
 
-            {/* 模式选择 (保持你的原有代码) */}
+            {/* 模式选择 */}
             <div className="space-y-3">
               <Label className="text-base font-medium">Generation Mode</Label>
               <RadioGroup
@@ -158,7 +159,6 @@ export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormP
                 onValueChange={(value) => form.setValue("generationMode", value as 'text_only' | 'text_with_images')}
                 className="grid grid-cols-1 sm:grid-cols-2 gap-4"
               >
-                {/* 样式优化：让选项看起来更可点击 */}
                 <div className={`flex items-start space-x-3 p-4 border rounded-lg transition-all cursor-pointer ${form.watch("generationMode") === 'text_with_images' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50'}`}>
                   <RadioGroupItem value="text_with_images" id="mode-images" className="mt-1" />
                   <div className="flex-1">
@@ -197,7 +197,6 @@ export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormP
                   "Insufficient Credits - Recharge to Continue"
                 )
               ) : (
-                // 未登录状态的按钮文案
                 <span className="flex items-center gap-2">
                   Sign In to Get 3 Free Guides <Lock size={16} className="opacity-70" />
                 </span>
@@ -217,4 +216,3 @@ export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormP
     </motion.div>
   );
 }
-

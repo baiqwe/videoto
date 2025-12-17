@@ -46,3 +46,8 @@ next-env.d.ts
 
 # External reference folder
 Chinesename.club/
+
+# worker artifacts
+*.vtt
+migration.sql
+worker/cookies.txt

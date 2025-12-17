@@ -65,9 +65,7 @@ export default function Header({ user }: HeaderProps) {
               )}
               {!isDashboard && (
                 <>
-                  <Button asChild size="sm" variant="default">
-                    <Link href="/profile">Profile</Link>
-                  </Button>
+
                   {/* <Button asChild size="sm" variant="outline">
                     <Link href="/dashboard">Dashboard</Link>
                   </Button> */}

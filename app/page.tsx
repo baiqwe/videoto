@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
-import VideoInputForm from "@/components/product/generator/video-input-form";
+import VideoInputForm from "@/components/video-input-form";
 import { ExampleShowcase } from "@/components/landing/example-showcase";
 import { CheckCircle2, FileText, Zap, Image as ImageIcon, Sparkles, Youtube, ArrowRight } from "lucide-react";
 
@@ -81,6 +81,20 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "StepSnip",
+            "applicationCategory": "ProductivityApplication",
+            "operatingSystem": "Web",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "description": "Convert YouTube videos into step-by-step guides with AI."
+          })
+        }}
+      />
       {/* Hero Section */}
       <section className="relative pt-32 pb-24 overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-gradient-to-b from-primary/5 to-transparent -z-10" />

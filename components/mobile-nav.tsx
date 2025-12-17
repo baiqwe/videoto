@@ -50,9 +50,7 @@ export function MobileNav({ items, user, isDashboard }: MobileNavProps) {
               )}
               {!isDashboard && (
                 <>
-                  <Button asChild variant="default" className="w-full">
-                    <Link href="/profile">Profile</Link>
-                  </Button>
+
                   <Button asChild variant="outline" className="w-full">
                     <Link href="/dashboard">Dashboard</Link>
                   </Button>

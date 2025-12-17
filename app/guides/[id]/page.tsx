@@ -1,6 +1,7 @@
 import { Metadata, ResolvingMetadata } from "next";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import GuideClientPage from "./guide-client";
 
 // 1. 动态生成 SEO 标题和描述 (Server Side)
@@ -55,23 +56,43 @@ export default async function GuidePage({ params }: { params: Promise<{ id: stri
     .eq("project_id", id)
     .order("step_order", { ascending: true });
 
+  // Fetch related guides
+  const { data: relatedGuides } = await supabase
+    .from("projects")
+    .select("id, title, video_source_url")
+    .neq("id", id)
+    .eq("status", "completed")
+    .order("created_at", { ascending: false })
+    .limit(3);
+
   // 3. 构建 Google 结构化数据 (Schema Markup)
   // 这是让你的结果在 Google 显示“步骤预览”的关键
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "HowTo",
-    "name": project.title || "Video Guide",
-    "step": steps?.map((step) => ({
-      "@type": "HowToStep",
-      "position": step.step_order,
-      "name": step.title,
-      "text": step.description,
-      // 如果有图片，必须加上，这对 SEO 极好
-      "image": step.image_path
-        ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/guide_images/${step.image_path}`
-        : undefined,
-      "url": `${process.env.NEXT_PUBLIC_SITE_URL}/guides/${id}#step-${step.step_order}`
-    }))
+    "@graph": [
+      {
+        "@type": "HowTo",
+        "name": project.title || "Video Guide",
+        "step": steps?.map((step) => ({
+          "@type": "HowToStep",
+          "position": step.step_order,
+          "name": step.title,
+          "text": step.description,
+          "image": step.image_path
+            ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/guide_images/${step.image_path}`
+            : undefined,
+          "url": `${process.env.NEXT_PUBLIC_SITE_URL}/guides/${id}#step-${step.step_order}`
+        }))
+      },
+      {
+        "@type": "VideoObject",
+        "name": project.title || "Video Guide",
+        "description": "Original video source for this guide.",
+        "contentUrl": project.video_source_url,
+        "uploadDate": project.created_at,
+        "thumbnailUrl": "https://img.youtube.com/vi/placeholder/maxresdefault.jpg" // Placeholder as extraction is complex here
+      }
+    ]
   };
 
   // 4. 处理图片 URL (为了传给客户端组件显示)
@@ -126,6 +147,24 @@ export default async function GuidePage({ params }: { params: Promise<{ id: stri
         initialProject={clientProject}
         initialSteps={clientSteps}
       />
+
+      {/* Related Guides Section */}
+      {relatedGuides && relatedGuides.length > 0 && (
+        <div className="container py-12 px-4 md:px-6 border-t mt-12 bg-gray-50/50 dark:bg-gray-900/10">
+          <h2 className="text-2xl font-bold mb-6">More Guides</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {relatedGuides.map(guide => (
+              <Link key={guide.id} href={`/guides/${guide.id}`} className="group block">
+                <div className="h-full rounded-lg border bg-card text-card-foreground shadow-sm p-5 hover:shadow-md transition-all hover:border-primary/50">
+                  <h3 className="font-bold line-clamp-2 mb-2 group-hover:text-primary transition-colors">{guide.title || 'Untitled Guide'}</h3>
+                  <p className="text-xs text-muted-foreground truncate opacity-70 mb-2">{guide.video_source_url}</p>
+                  <div className="text-xs text-primary font-medium">View Guide →</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }

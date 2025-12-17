@@ -4,6 +4,7 @@ import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { createClient } from "@/utils/supabase/server";
 import { Toaster } from "@/components/ui/toaster";
+import Script from "next/script";
 import "./globals.css";
 
 const baseUrl = process.env.BASE_URL
@@ -68,6 +69,23 @@ export default async function RootLayout({
   return (
     <html lang="en" className={geistSans.className} suppressHydrationWarning>
       <body className="bg-background text-foreground">
+        {/* Google Analytics */}
+        <Script
+          strategy="afterInteractive"
+          src="https://www.googletagmanager.com/gtag/js?id=G-SJS92ZHFM7"
+        />
+        <Script
+          id="google-analytics"
+          strategy="afterInteractive"
+        >
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+
+            gtag('config', 'G-SJS92ZHFM7');
+          `}
+        </Script>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

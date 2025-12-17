@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+// 引入官方库以创建 Admin 客户端
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export async function GET() {
   try {
@@ -24,41 +26,42 @@ export async function GET() {
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
-    // 3. 【关键】兜底创建逻辑 (如果触发器没执行，这里补救)
+    // 3. 【关键修复】兜底创建逻辑 - 使用 Admin 权限
     if (!customer) {
-      console.log('检测到新用户无记录，正在执行 API 补救创建...');
+      console.log('API: 检测到新用户无记录，正在执行 Admin 补救...');
 
-      const { data: newCustomer, error: createError } = await supabase
+      // ⚠️ 使用 Service Role Key 创建超级管理员客户端
+      // 这可以绕过 RLS 策略，确保一定能插入成功
+      const adminSupabase = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      const { data: newCustomer, error: createError } = await adminSupabase
         .from('customers')
         .insert({
           user_id: user.id,
           email: user.email || 'unknown@example.com',
-          credits: 30, // ✅ 修正：必须是 30
+          credits: 30, // 补发 30 分
           creem_customer_id: `api_fix_${user.id}`,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          metadata: {
-            source: 'api_fallback',
-            initial_credits: 30 // ✅ 修正
-          }
+          metadata: { source: 'api_fallback_admin', initial_credits: 30 }
         })
         .select()
         .single();
 
       if (createError) {
-        console.error('API 补救创建失败 (可能是 RLS 权限问题):', createError);
-        // 返回 0 分，避免前端报错崩溃
-        return NextResponse.json({
-          credits: { total_credits: 0, remaining_credits: 0, id: 'temp' }
-        });
+        console.error('API补救失败:', createError);
+        return NextResponse.json({ error: 'Failed to create customer' }, { status: 500 });
       }
 
-      // 补写历史记录
-      await supabase.from('credits_history').insert({
+      // 补写历史记录 (同样用 Admin)
+      await adminSupabase.from('credits_history').insert({
         customer_id: newCustomer.id,
-        amount: 30, // ✅ 修正
+        amount: 30,
         type: 'add',
-        description: '新用户注册福利 (API补全)',
+        description: '🎉 新用户注册福利 (API补全)',
         metadata: { source: 'api_fallback' }
       });
 

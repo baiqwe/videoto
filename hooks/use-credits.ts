@@ -26,6 +26,7 @@ export function useCredits(): UseCreditsResult {
   const [error, setError] = useState<string | null>(null);
 
   const fetchCredits = async () => {
+    console.log('useCredits: fetchCredits called. User:', user?.email); // 👈 调试日志
     if (!user) {
       setCredits(null);
       setLoading(false);
@@ -36,7 +37,7 @@ export function useCredits(): UseCreditsResult {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await fetch('/api/credits');
       const data = await response.json();
 
@@ -77,7 +78,7 @@ export function useCredits(): UseCreditsResult {
 
     try {
       setError(null);
-      
+
       const response = await fetch('/api/credits', {
         method: 'POST',
         headers: {

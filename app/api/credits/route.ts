@@ -5,10 +5,10 @@ import { createClient } from '@/utils/supabase/server';
 export async function GET() {
   try {
     const supabase = await createClient();
-    
+
     // 获取当前用户
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -46,13 +46,13 @@ export async function GET() {
         .insert({
           user_id: user.id,
           email: user.email || 'unknown@example.com',
-          credits: 3, // 新用户赠送3积分
+          credits: 30, // 🟢 修改点 1：将 3 改为 30
           creem_customer_id: `new_user_${user.id}`,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           metadata: {
             source: 'chinese_name_generator',
-            initial_credits: 3
+            initial_credits: 30 // 🟢 修改点 2：将 3 改为 30
           }
         })
         .select(`
@@ -79,13 +79,13 @@ export async function GET() {
         .from('credits_history')
         .insert({
           customer_id: newCustomer.id,
-          amount: 3,
+          amount: 30, // 🟢 修改点 3：将 3 改为 30
           type: 'add',
           description: 'Welcome bonus for new user',
           metadata: { source: 'welcome_bonus' }
         });
 
-      return NextResponse.json({ 
+      return NextResponse.json({
         credits: {
           id: newCustomer.id,
           user_id: newCustomer.user_id,
@@ -98,7 +98,7 @@ export async function GET() {
     }
 
     // 返回兼容的格式
-    return NextResponse.json({ 
+    return NextResponse.json({
       credits: {
         id: customer.id,
         user_id: customer.user_id,
@@ -121,7 +121,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { amount, operation } = await request.json();
-    
+
     if (!amount || amount <= 0) {
       return NextResponse.json(
         { error: 'Invalid credit amount' },
@@ -130,10 +130,10 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient();
-    
+
     // 获取当前用户
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 返回兼容的格式
-    return NextResponse.json({ 
+    return NextResponse.json({
       credits: {
         id: updatedCustomer.id,
         user_id: updatedCustomer.user_id,
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
         created_at: updatedCustomer.created_at,
         updated_at: updatedCustomer.updated_at
       },
-      success: true 
+      success: true
     });
   } catch (error) {
     console.error('Credits spend API error:', error);

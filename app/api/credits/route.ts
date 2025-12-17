@@ -1,89 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
-// GET - 获取用户积分（使用统一的customers表）
 export async function GET() {
   try {
     const supabase = await createClient();
 
-    // 获取当前用户
+    // 1. 获取当前用户
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 查询用户的customer记录
+    // 2. 查询 customer 记录
     const { data: customer, error } = await supabase
       .from('customers')
-      .select(`
-        *,
-        credits_history (
-          amount,
-          type,
-          created_at,
-          description
-        )
-      `)
+      .select(`*, credits_history (*)`) // 简化查询
       .eq('user_id', user.id)
       .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('Error fetching customer data:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch customer data' },
-        { status: 500 }
-      );
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error fetching customer:', error);
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
-    // 如果用户没有customer记录，创建一个默认记录
+    // 3. 【关键】兜底创建逻辑 (如果触发器没执行，这里补救)
     if (!customer) {
+      console.log('检测到新用户无记录，正在执行 API 补救创建...');
+
       const { data: newCustomer, error: createError } = await supabase
         .from('customers')
         .insert({
           user_id: user.id,
           email: user.email || 'unknown@example.com',
-          credits: 30, // 🟢 修改点 1：将 3 改为 30
-          creem_customer_id: `new_user_${user.id}`,
+          credits: 30, // ✅ 修正：必须是 30
+          creem_customer_id: `api_fix_${user.id}`,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           metadata: {
-            source: 'chinese_name_generator',
-            initial_credits: 30 // 🟢 修改点 2：将 3 改为 30
+            source: 'api_fallback',
+            initial_credits: 30 // ✅ 修正
           }
         })
-        .select(`
-          *,
-          credits_history (
-            amount,
-            type,
-            created_at,
-            description
-          )
-        `)
+        .select()
         .single();
 
       if (createError) {
-        console.error('Error creating customer record:', createError);
-        return NextResponse.json(
-          { error: 'Failed to create customer record' },
-          { status: 500 }
-        );
+        console.error('API 补救创建失败 (可能是 RLS 权限问题):', createError);
+        // 返回 0 分，避免前端报错崩溃
+        return NextResponse.json({
+          credits: { total_credits: 0, remaining_credits: 0, id: 'temp' }
+        });
       }
 
-      // 记录初始积分赠送
-      await supabase
-        .from('credits_history')
-        .insert({
-          customer_id: newCustomer.id,
-          amount: 30, // 🟢 修改点 3：将 3 改为 30
-          type: 'add',
-          description: 'Welcome bonus for new user',
-          metadata: { source: 'welcome_bonus' }
-        });
+      // 补写历史记录
+      await supabase.from('credits_history').insert({
+        customer_id: newCustomer.id,
+        amount: 30, // ✅ 修正
+        type: 'add',
+        description: '新用户注册福利 (API补全)',
+        metadata: { source: 'api_fallback' }
+      });
 
       return NextResponse.json({
         credits: {
@@ -97,23 +74,20 @@ export async function GET() {
       });
     }
 
-    // 返回兼容的格式
+    // 4. 正常返回
     return NextResponse.json({
       credits: {
         id: customer.id,
         user_id: customer.user_id,
-        total_credits: customer.credits, // 使用当前积分作为总积分
-        remaining_credits: customer.credits,
+        total_credits: customer.credits,
+        remaining_credits: customer.credits, // 你的前端用 remaining_credits
         created_at: customer.created_at,
         updated_at: customer.updated_at
       }
     });
+
   } catch (error) {
-    console.error('Credits API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 

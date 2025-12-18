@@ -24,6 +24,7 @@ export default function Header({ user }: HeaderProps) {
   // Main navigation items for StepSnip
   const mainNavItems: NavItem[] = [
     { label: "Home", href: "/" },
+    { label: "Pricing", href: "/pricing" },
     { label: "Dashboard", href: "/dashboard" },
     { label: "About", href: "/about" },
   ];

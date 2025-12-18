@@ -7,9 +7,8 @@ import { Toaster } from "@/components/ui/toaster";
 import Script from "next/script";
 import "./globals.css";
 
-const baseUrl = process.env.BASE_URL
-  ? `https://${process.env.BASE_URL}`
-  : "http://localhost:3000";
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.stepsnip.com";
+
 
 export const metadata = {
   metadataBase: new URL(baseUrl),
@@ -38,11 +37,16 @@ export const metadata = {
     siteName: "StepSnip",
   },
   alternates: {
-    canonical: './',
+    canonical: '/',
     languages: {
-      'en': './',
-      'x-default': './'
+      'en': '/',
+      'x-default': '/'
     },
+  },
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
   },
   twitter: {
     card: "summary_large_image",

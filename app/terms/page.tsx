@@ -47,7 +47,7 @@ export default function TermsPage() {
               Terms of Service
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              These terms govern your use of our Chinese name generation service. 
+              These terms govern your use of our StepSnip video to guide conversion service.
               By using our service, you agree to these terms and conditions.
             </p>
             <p className="text-sm text-muted-foreground">
@@ -71,7 +71,7 @@ export default function TermsPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground text-sm">
-                  Use our service to generate Chinese names, save your favorites, and share your generated names with others.
+                  Use our service to generate step-by-step guides, save your favorites, and share them with others.
                 </p>
               </CardContent>
             </Card>
@@ -85,7 +85,7 @@ export default function TermsPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground text-sm">
-                  Misuse our service, violate others' rights, or use generated names for illegal or harmful purposes.
+                  Misuse our service, violate others' rights, or use generated content for illegal or harmful purposes.
                 </p>
               </CardContent>
             </Card>
@@ -99,7 +99,7 @@ export default function TermsPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground text-sm">
-                  Provide reliable service, protect your privacy, and maintain the quality of our name generation.
+                  Provide reliable service, protect your privacy, and maintain the quality of our guide generation.
                 </p>
               </CardContent>
             </Card>
@@ -117,18 +117,18 @@ export default function TermsPage() {
                 <FileText className="h-6 w-6 text-primary" />
                 Our Service
               </h3>
-              
+
               <div className="space-y-4 text-muted-foreground">
                 <p>
-                  Chinese Name Generator is an AI-powered platform that creates personalized Chinese names based on 
-                  your preferences, personality traits, and cultural considerations. Our service includes:
+                  StepSnip is an AI-powered platform that transforms YouTube videos into
+                  comprehensive, structured articles and step-by-step guides. Our service includes:
                 </p>
-                
+
                 <ul className="space-y-2">
-                  <li>• <strong>Free Generation:</strong> Limited daily name generation for non-registered users</li>
-                  <li>• <strong>Premium Features:</strong> Unlimited generation, personalized matching, and name saving for registered users</li>
-                  <li>• <strong>Cultural Education:</strong> Detailed meanings, pronunciations, and cultural context for generated names</li>
-                  <li>• <strong>Personal Collections:</strong> Save and manage your favorite generated names</li>
+                  <li>• <strong>Free Generation:</strong> Limited daily guide generation for non-registered users</li>
+                  <li>• <strong>Premium Features:</strong> Unlimited generation, and guide saving for registered users</li>
+                  <li>• <strong>AI Analysis:</strong> Detailed steps, timestamps, and screenshots for generated guides</li>
+                  <li>• <strong>Personal Collections:</strong> Save and manage your favorite generated guides</li>
                 </ul>
               </div>
             </div>
@@ -143,7 +143,7 @@ export default function TermsPage() {
           >
             <div className="bg-muted/30 rounded-2xl p-8">
               <h3 className="text-2xl font-bold mb-6">Your Responsibilities</h3>
-              
+
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
                   <h4 className="font-semibold mb-3 text-green-700">Acceptable Use</h4>
@@ -155,14 +155,14 @@ export default function TermsPage() {
                     <li>• Report any technical issues or misuse</li>
                   </ul>
                 </div>
-                
+
                 <div>
                   <h4 className="font-semibold mb-3 text-red-700">Prohibited Activities</h4>
                   <ul className="space-y-2 text-muted-foreground">
-                    <li>• Using generated names for fraudulent purposes</li>
+                    <li>• Using generated content for fraudulent purposes</li>
                     <li>• Attempting to reverse-engineer our algorithms</li>
                     <li>• Sharing account credentials with others</li>
-                    <li>• Using automated tools to bulk-generate names</li>
+                    <li>• Using automated tools to bulk-generate content</li>
                     <li>• Violating any applicable laws or regulations</li>
                   </ul>
                 </div>
@@ -178,32 +178,30 @@ export default function TermsPage() {
             className="space-y-8"
           >
             <div className="bg-muted/30 rounded-2xl p-8">
-              <h3 className="text-2xl font-bold mb-6">Intellectual Property and Generated Names</h3>
-              
+              <h3 className="text-2xl font-bold mb-6">Intellectual Property and Generated Guides</h3>
+
               <div className="space-y-4 text-muted-foreground">
                 <div>
-                  <h4 className="font-semibold mb-3 text-foreground">Your Rights to Generated Names</h4>
+                  <h4 className="font-semibold mb-3 text-foreground">Your Rights to Generated Guides</h4>
                   <p>
-                    You have the right to use any Chinese names generated through our service for personal purposes. 
-                    However, please note that traditional Chinese names are part of cultural heritage and cannot be 
-                    exclusively owned by any individual.
+                    You have the right to use any guides generated through our service for personal or educational purposes.
                   </p>
                 </div>
-                
+
                 <div>
                   <h4 className="font-semibold mb-3 text-foreground">Our Intellectual Property</h4>
                   <p>
-                    The Chinese Name Generator platform, including our AI algorithms, website design, brand elements, 
-                    and proprietary technology, remains our intellectual property. You may not copy, modify, or 
+                    The StepSnip platform, including our AI algorithms, website design, brand elements,
+                    and proprietary technology, remains our intellectual property. You may not copy, modify, or
                     redistribute our platform or technology.
                   </p>
                 </div>
-                
+
                 <div>
-                  <h4 className="font-semibold mb-3 text-foreground">Cultural Respect</h4>
+                  <h4 className="font-semibold mb-3 text-foreground">Content Accuracy</h4>
                   <p>
-                    We encourage respectful use of Chinese names and understanding of their cultural significance. 
-                    Generated names should be used with appreciation for Chinese culture and traditions.
+                    We encourage users to verify the accuracy of AI-generated steps.
+                    Our goal is to provide a helpful starting point for your documentation.
                   </p>
                 </div>
               </div>
@@ -222,29 +220,29 @@ export default function TermsPage() {
                 <AlertTriangle className="h-6 w-6 text-amber-500" />
                 Service Availability and Disclaimers
               </h3>
-              
+
               <div className="space-y-4 text-muted-foreground">
                 <div>
                   <h4 className="font-semibold mb-2 text-foreground">Service Availability</h4>
                   <p>
-                    While we strive to maintain 24/7 service availability, we cannot guarantee uninterrupted access. 
+                    While we strive to maintain 24/7 service availability, we cannot guarantee uninterrupted access.
                     We may temporarily suspend service for maintenance, updates, or due to circumstances beyond our control.
                   </p>
                 </div>
-                
+
                 <div>
                   <h4 className="font-semibold mb-2 text-foreground">AI-Generated Content</h4>
                   <p>
-                    Our Chinese names are generated by AI technology. While we strive for cultural accuracy and appropriateness, 
-                    we recommend consulting with native speakers or cultural experts for important use cases.
+                    Our guides are generated by AI technology. While we strive for accuracy,
+                    we recommend verifying important steps manually.
                   </p>
                 </div>
-                
+
                 <div>
                   <h4 className="font-semibold mb-2 text-foreground">No Warranties</h4>
                   <p>
-                    Our service is provided "as is" without warranties of any kind. We do not guarantee the suitability 
-                    of generated names for any specific purpose or their acceptance in all cultural contexts.
+                    Our service is provided "as is" without warranties of any kind. We do not guarantee the suitability
+                    of generated content for any specific purpose or its accuracy in all contexts.
                   </p>
                 </div>
               </div>
@@ -260,18 +258,18 @@ export default function TermsPage() {
           >
             <div className="bg-muted/30 rounded-2xl p-8">
               <h3 className="text-2xl font-bold mb-6">Payment and Subscription Terms</h3>
-              
+
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
                   <h4 className="font-semibold mb-3">Premium Subscriptions</h4>
                   <ul className="space-y-2 text-muted-foreground">
                     <li>• Monthly and annual subscription options available</li>
                     <li>• Automatic renewal unless cancelled</li>
-                    <li>• Access to unlimited name generation</li>
+                    <li>• Access to unlimited guide generation</li>
                     <li>• Premium features and personalization</li>
                   </ul>
                 </div>
-                
+
                 <div>
                   <h4 className="font-semibold mb-3">Cancellation and Refunds</h4>
                   <ul className="space-y-2 text-muted-foreground">
@@ -294,13 +292,13 @@ export default function TermsPage() {
           >
             <div className="bg-muted/30 rounded-2xl p-8">
               <h3 className="text-2xl font-bold mb-6">Changes to These Terms</h3>
-              
+
               <div className="space-y-4 text-muted-foreground">
                 <p>
-                  We may update these Terms of Service from time to time to reflect changes in our service, 
+                  We may update these Terms of Service from time to time to reflect changes in our service,
                   legal requirements, or business practices. When we make changes:
                 </p>
-                
+
                 <ul className="space-y-2">
                   <li>• We will update the "Last updated" date at the top of this page</li>
                   <li>• For significant changes, we will notify users via email or service notifications</li>
@@ -320,7 +318,7 @@ export default function TermsPage() {
           >
             <h3 className="text-2xl font-bold mb-4">Questions About These Terms?</h3>
             <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-              If you have any questions about these Terms of Service or need clarification about your rights and responsibilities, 
+              If you have any questions about these Terms of Service or need clarification about your rights and responsibilities,
               please contact us. We're here to help ensure you understand and can comply with these terms.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

@@ -27,10 +27,9 @@ export async function generateMetadata(
 
   return {
     title: pageTitle,
-    description: `Learn how to process this video with our detailed step-by-step guide. Generated from ${project.video_source_url}.`,
-    // 这里预埋了国际化链接，指向当前页面
+    description: `Complete step-by-step guide: ${project.title}. Transform watch time into read time with StepSnip's AI-powered analysis.`,
     alternates: {
-      canonical: `/guides/${id}`,
+      canonical: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stepsnip.com'}/guides/${id}`,
     }
   };
 }
@@ -65,6 +64,19 @@ export default async function GuidePage({ params }: { params: Promise<{ id: stri
     .order("created_at", { ascending: false })
     .limit(3);
 
+  // 获取第一步的图片作为封面
+  const { data: firstStep } = await supabase
+    .from("steps")
+    .select("image_path")
+    .eq("project_id", id)
+    .order("step_order", { ascending: true })
+    .limit(1)
+    .single();
+
+  const thumbnailUrl = firstStep?.image_path
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/guide_images/${firstStep.image_path}`
+    : "https://img.youtube.com/vi/placeholder/maxresdefault.jpg"; // Fallback if no steps or extraction failed
+
   // 3. 构建 Google 结构化数据 (Schema Markup)
   // 这是让你的结果在 Google 显示“步骤预览”的关键
   const jsonLd = {
@@ -90,7 +102,29 @@ export default async function GuidePage({ params }: { params: Promise<{ id: stri
         "description": "Original video source for this guide.",
         "contentUrl": project.video_source_url,
         "uploadDate": project.created_at,
-        "thumbnailUrl": "https://img.youtube.com/vi/placeholder/maxresdefault.jpg" // Placeholder as extraction is complex here
+        "thumbnailUrl": thumbnailUrl
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": process.env.NEXT_PUBLIC_SITE_URL || "https://www.stepsnip.com"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Guides",
+            "item": `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.stepsnip.com"}/explore`
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": project.title || "Video Guide"
+          }
+        ]
       }
     ]
   };
@@ -142,7 +176,39 @@ export default async function GuidePage({ params }: { params: Promise<{ id: stri
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* 加载交互组件 */}
+      {/* Breadcrumbs UI */}
+      <div className="container px-4 md:px-6 py-4 border-b bg-muted/20">
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Link href="/" className="hover:text-primary transition-colors">Home</Link>
+          <span className="opacity-50">/</span>
+          <Link href="/explore" className="hover:text-primary transition-colors">Guides</Link>
+          <span className="opacity-50">/</span>
+          <span className="font-medium text-foreground truncate max-w-[200px] md:max-w-md">
+            {project.title || "Video Guide"}
+          </span>
+        </nav>
+      </div>
+
+      {/* Guide Highlights / Key Takeaways for SEO "Original Value" */}
+      <div className="container max-w-3xl pt-12">
+        <div className="bg-primary/5 border border-primary/10 rounded-2xl p-6 md:p-8">
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-foreground">
+            <span className="text-primary text-2xl">✨</span> Key Highlights
+          </h2>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-sm text-muted-foreground">
+            {steps?.slice(0, 6).map((step, idx) => (
+              <li key={step.id} className="flex gap-2 items-start">
+                <span className="text-primary font-bold min-w-[1.2rem]">{idx + 1}.</span>
+                <span className="line-clamp-2">{step.title}</span>
+              </li>
+            ))}
+            {steps && steps.length > 6 && (
+              <li className="text-primary/60 italic font-medium pt-1">+ {steps.length - 6} more steps in this guide</li>
+            )}
+          </ul>
+        </div>
+      </div>
+
       <GuideClientPage
         initialProject={clientProject}
         initialSteps={clientSteps}

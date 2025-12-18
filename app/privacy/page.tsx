@@ -47,8 +47,8 @@ export default function PrivacyPage() {
               Privacy Policy
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              We are committed to protecting your privacy and being transparent about how we collect, 
-              use, and protect your personal information when you use our Chinese name generation service.
+              We are committed to protecting your privacy and being transparent about how we collect,
+              use, and protect your personal information when you use our Video to Article & Guide conversion service.
             </p>
             <p className="text-sm text-muted-foreground">
               <strong>Last updated:</strong> January 31, 2025
@@ -71,7 +71,7 @@ export default function PrivacyPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground text-sm">
-                  We clearly explain what data we collect and how we use it to provide you with the best Chinese name generation experience.
+                  We clearly explain what data we collect and how we use it to provide you with the best experience.
                 </p>
               </CardContent>
             </Card>
@@ -117,18 +117,18 @@ export default function PrivacyPage() {
                 <Database className="h-6 w-6 text-primary" />
                 Information We Collect
               </h3>
-              
+
               <div className="space-y-6">
                 <div>
                   <h4 className="font-semibold mb-3">Information You Provide</h4>
                   <ul className="space-y-2 text-muted-foreground">
-                    <li>• <strong>Personal Details:</strong> English name, gender, birth year (optional)</li>
-                    <li>• <strong>Preferences:</strong> Personality traits and name preferences you share</li>
+                    <li>• <strong>Personal Details:</strong> Email and profile information</li>
+                    <li>• <strong>Preferences:</strong> Generation preferences and settings</li>
                     <li>• <strong>Account Information:</strong> Email address when you create an account</li>
-                    <li>• <strong>Generated Names:</strong> Chinese names you generate and save to your profile</li>
+                    <li>• <strong>Generated Guides:</strong> Step-by-step guides you generate and save to your profile</li>
                   </ul>
                 </div>
-                
+
                 <div>
                   <h4 className="font-semibold mb-3">Information We Collect Automatically</h4>
                   <ul className="space-y-2 text-muted-foreground">
@@ -150,18 +150,18 @@ export default function PrivacyPage() {
           >
             <div className="bg-muted/30 rounded-2xl p-8">
               <h3 className="text-2xl font-bold mb-6">How We Use Your Information</h3>
-              
+
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
                   <h4 className="font-semibold mb-3">Service Provision</h4>
                   <ul className="space-y-2 text-muted-foreground">
-                    <li>• Generate personalized Chinese names</li>
-                    <li>• Save your generated names and preferences</li>
+                    <li>• Generate personalized step-by-step guides</li>
+                    <li>• Save your generated guides and preferences</li>
                     <li>• Provide customer support</li>
                     <li>• Process payments for premium features</li>
                   </ul>
                 </div>
-                
+
                 <div>
                   <h4 className="font-semibold mb-3">Service Improvement</h4>
                   <ul className="space-y-2 text-muted-foreground">
@@ -187,12 +187,12 @@ export default function PrivacyPage() {
                 <Globe className="h-6 w-6 text-primary" />
                 Information Sharing
               </h3>
-              
+
               <div className="space-y-4 text-muted-foreground">
                 <p>
                   <strong>We do not sell your personal information.</strong> We may share your information only in these limited circumstances:
                 </p>
-                
+
                 <ul className="space-y-2">
                   <li>• <strong>Service Providers:</strong> Trusted third parties who help us operate our service (payment processing, hosting, analytics)</li>
                   <li>• <strong>Legal Requirements:</strong> When required by law or to protect our rights and safety</li>
@@ -212,7 +212,7 @@ export default function PrivacyPage() {
           >
             <div className="bg-muted/30 rounded-2xl p-8">
               <h3 className="text-2xl font-bold mb-6">Your Rights and Choices</h3>
-              
+
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
                   <h4 className="font-semibold mb-3">Access and Control</h4>
@@ -223,7 +223,7 @@ export default function PrivacyPage() {
                     <li>• Download your data</li>
                   </ul>
                 </div>
-                
+
                 <div>
                   <h4 className="font-semibold mb-3">Communication Preferences</h4>
                   <ul className="space-y-2 text-muted-foreground">
@@ -246,13 +246,13 @@ export default function PrivacyPage() {
           >
             <div className="bg-muted/30 rounded-2xl p-8">
               <h3 className="text-2xl font-bold mb-6">Data Security and Retention</h3>
-              
+
               <div className="space-y-4 text-muted-foreground">
                 <p>
-                  We implement appropriate technical and organizational measures to protect your personal information against 
+                  We implement appropriate technical and organizational measures to protect your personal information against
                   unauthorized access, alteration, disclosure, or destruction.
                 </p>
-                
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <h4 className="font-semibold mb-2 text-foreground">Security Measures</h4>
@@ -263,12 +263,12 @@ export default function PrivacyPage() {
                       <li>• Secure data centers</li>
                     </ul>
                   </div>
-                  
+
                   <div>
                     <h4 className="font-semibold mb-2 text-foreground">Data Retention</h4>
                     <ul className="space-y-1">
                       <li>• Account data: Until account deletion</li>
-                      <li>• Generated names: Until you delete them</li>
+                      <li>• Generated guides: Until you delete them</li>
                       <li>• Usage logs: Up to 2 years</li>
                       <li>• Marketing data: Until opt-out</li>
                     </ul>
@@ -287,7 +287,7 @@ export default function PrivacyPage() {
           >
             <h3 className="text-2xl font-bold mb-4">Questions About Privacy?</h3>
             <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-              If you have any questions about this Privacy Policy or our data practices, 
+              If you have any questions about this Privacy Policy or our data practices,
               please don't hesitate to contact us. We're here to help and ensure your privacy is protected.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

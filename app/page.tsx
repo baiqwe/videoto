@@ -121,8 +121,8 @@ export default function Home() {
               transition={{ delay: 0.1 }}
               className="text-4xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl max-w-4xl"
             >
-              Stop Pausing YouTube. <br />
-              <span className="text-primary italic">Start Learning in Seconds.</span>
+              Convert <span className="text-primary">YouTube to Text</span>, Articles & <br />
+              <span className="text-primary italic">Visual Guides</span> with AI
             </motion.h1>
 
             <motion.p
@@ -131,7 +131,7 @@ export default function Home() {
               transition={{ delay: 0.2 }}
               className="text-xl text-muted-foreground max-w-2xl"
             >
-              Instantly transform any YouTube tutorial into a structured, searchable guide with AI-captured screenshots. Skim the tutorial. <span className="text-foreground font-semibold underline decoration-primary/30">Skip the fluff.</span>
+              The best free <strong className="text-foreground">video to text converter</strong>. Turn any video into a transcript, blog post, or step-by-step tutorial with screenshots in seconds.
             </motion.p>
 
             {/* Input Form */}
@@ -239,6 +239,33 @@ export default function Home() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section - SEO Long-tail Capture */}
+      <section className="py-20 bg-muted/30">
+        <div className="container px-4 md:px-6">
+          <h2 className="text-3xl font-bold text-center mb-12">Frequently Asked Questions</h2>
+          <div className="max-w-3xl mx-auto space-y-6">
+            <div className="bg-card p-6 rounded-xl border space-y-3">
+              <h3 className="font-semibold text-lg">Is StepSnip a free YouTube to text converter?</h3>
+              <p className="text-muted-foreground">
+                Yes, you can start converting YouTube videos to text, transcripts, and guides for free. We offer 30 free credits to get you started.
+              </p>
+            </div>
+            <div className="bg-card p-6 rounded-xl border space-y-3">
+              <h3 className="font-semibold text-lg">Can AI turn my video into a blog post?</h3>
+              <p className="text-muted-foreground">
+                Absolutely. StepSnip analyzes your video content and restructures it into an SEO-optimized blog article or step-by-step guide ready for publishing.
+              </p>
+            </div>
+            <div className="bg-card p-6 rounded-xl border space-y-3">
+              <h3 className="font-semibold text-lg">How accurate are the transcripts?</h3>
+              <p className="text-muted-foreground">
+                Our AI provides highly accurate transcriptions by combining advanced speech recognition with context-aware processing, ideal for documentation and content repurposing.
+              </p>
+            </div>
           </div>
         </div>
       </section>

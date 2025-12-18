@@ -1,12 +1,21 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/utils/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowRight, Clock } from 'lucide-react'
+import { ArrowRight, Clock, PlayCircle } from 'lucide-react'
+
+// Helper function to extract YouTube video ID from URL
+function extractYouTubeId(url: string): string | null {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url?.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+}
 
 export const metadata = {
-    title: 'Explore Video Guides - StepSnip',
-    description: 'Discover the latest step-by-step guides generated from YouTube videos. Browse our collection of community-created tutorials.',
+    title: 'Explore Popular How-to Guides & Video Tutorials - StepSnip',
+    description: 'Browse thousands of step-by-step guides generated from YouTube videos. Find tutorials on coding, design, cooking, tech support and more.',
+    keywords: ['how to guides', 'video tutorials', 'step by step instructions', 'youtube tutorials', 'visual guides'],
 }
 
 export default async function ExplorePage() {
@@ -39,20 +48,39 @@ export default async function ExplorePage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {projects.map((project) => (
-                        <Link key={project.id} href={`/guides/${project.id}`} className="block group h-full">
-                            <Card className="h-full hover:shadow-lg transition-all duration-300 border-transparent hover:border-primary/20 bg-card/50 hover:bg-card">
-                                <CardHeader>
-                                    <CardTitle className="text-lg line-clamp-2 leading-tight group-hover:text-primary transition-colors">
-                                        {project.title || 'Untitled Video Guide'}
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        <div className="bg-muted/30 rounded-md p-3 text-xs text-muted-foreground break-all line-clamp-1">
-                                            {project.video_source_url}
-                                        </div>
+                    {projects.map((project) => {
+                        const videoId = extractYouTubeId(project.video_source_url);
+                        const thumbnailUrl = videoId
+                            ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                            : null;
 
+                        return (
+                            <Link key={project.id} href={`/guides/${project.id}`} className="block group h-full">
+                                <Card className="h-full hover:shadow-xl transition-all duration-300 border-transparent hover:border-primary/20 overflow-hidden">
+                                    {/* Thumbnail */}
+                                    <div className="relative aspect-video w-full bg-muted overflow-hidden">
+                                        {thumbnailUrl ? (
+                                            <Image
+                                                src={thumbnailUrl}
+                                                alt={project.title || 'Video Guide'}
+                                                fill
+                                                className="object-cover group-hover:scale-105 transition-transform duration-500"
+                                                unoptimized
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+                                                <PlayCircle className="w-16 h-16 text-primary/30" />
+                                            </div>
+                                        )}
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                                    </div>
+
+                                    <CardHeader>
+                                        <CardTitle className="text-lg line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+                                            {project.title || 'Untitled Video Guide'}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
                                         <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
                                             <div className="flex items-center gap-1">
                                                 <Clock className="w-3 h-3" />
@@ -62,11 +90,11 @@ export default async function ExplorePage() {
                                                 View Guide <ArrowRight className="w-3 h-3" />
                                             </span>
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-                    ))}
+                                    </CardContent>
+                                </Card>
+                            </Link>
+                        );
+                    })}
                 </div>
             )}
 

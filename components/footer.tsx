@@ -9,7 +9,8 @@ const footerLinks = [
   {
     title: "Product",
     links: [
-      { label: "Features", href: "/#features" },
+      { label: "YouTube to Text", href: "/features/youtube-to-text" },
+      { label: "Video to Blog", href: "/features/video-to-blog" },
       { label: "Pricing", href: "/pricing" },
       { label: "Latest Guides", href: "/explore" },
     ],

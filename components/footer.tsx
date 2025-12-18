@@ -2,7 +2,7 @@
 
 import { Logo } from "./logo";
 import Link from "next/link";
-import { Github } from "lucide-react";
+import { Github, Mail } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 const footerLinks = [
@@ -63,6 +63,15 @@ export function Footer() {
             <p className="mt-4 text-sm text-muted-foreground">
               StepSnip automatically converts YouTube videos into step-by-step guides with AI. Save time and learn faster.
             </p>
+            <div className="mt-6 flex flex-col gap-2">
+              <a
+                href="mailto:support@stepsnip.com"
+                className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors flex items-center gap-2"
+              >
+                <Mail className="h-4 w-4 text-primary" />
+                support@stepsnip.com
+              </a>
+            </div>
           </div>
           <div className="col-span-2 grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-4">
             {footerLinks.map((group) => (

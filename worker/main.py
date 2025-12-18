@@ -144,10 +144,14 @@ def download_video(url: str, output_path: Path) -> Dict:
         ydl_opts_video['proxy'] = proxy_url
 
     # Anti-bot Measure: Use cookies.txt if available (Best practice)
-    # If not, try browser cookies (Local dev fallback)
-    cookies_file = Path('cookies.txt')
+    # Use /tmp directory for Docker compatibility (root FS is read-only)
+    cookies_file = Path('/tmp/cookies.txt')
+    # Fallback: check current directory (for local dev)
+    if not cookies_file.exists():
+        cookies_file = Path('cookies.txt')
+    
     if cookies_file.exists():
-        print(f"   🍪 Using cookies from {cookies_file.name}")
+        print(f"   🍪 Using cookies from {cookies_file}")
         ydl_opts_video['cookiefile'] = str(cookies_file)
     else:
         # Fallback to chrome cookies for local dev if file missing

@@ -104,20 +104,25 @@ export default function Home() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm font-medium text-primary"
+              className="flex flex-col items-center gap-3"
             >
-              <span className="flex h-2 w-2 rounded-full bg-primary mr-2"></span>
-              🎉 New: Get 30 Free Credits on Sign Up
+              <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm font-medium text-primary">
+                <span className="flex h-2 w-2 rounded-full bg-primary mr-2"></span>
+                🎉 New: Get 30 Free Credits on Sign Up
+              </div>
+              <p className="text-[10px] md:text-xs text-muted-foreground font-bold uppercase tracking-[0.2em]">
+                Joined by 5,000+ Visual Learners & Developers
+              </p>
             </motion.div>
 
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="text-4xl font-bold tracking-tight sm:text-6xl lg:text-7xl max-w-4xl"
+              className="text-4xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl max-w-4xl"
             >
-              Turn Video Content into <br />
-              <span className="text-primary">Step-by-Step Guides</span>
+              Stop Pausing YouTube. <br />
+              <span className="text-primary italic">Start Learning in Seconds.</span>
             </motion.h1>
 
             <motion.p
@@ -126,7 +131,7 @@ export default function Home() {
               transition={{ delay: 0.2 }}
               className="text-xl text-muted-foreground max-w-2xl"
             >
-              Stop pausing and rewinding. StepSnip automatically converts YouTube tutorials into clean, visual articles with screenshots.
+              Instantly transform any YouTube tutorial into a structured, searchable guide with AI-captured screenshots. Skim the tutorial. <span className="text-foreground font-semibold underline decoration-primary/30">Skip the fluff.</span>
             </motion.p>
 
             {/* Input Form */}
@@ -139,8 +144,9 @@ export default function Home() {
               <div className="bg-card p-2 rounded-xl shadow-lg border relative z-10">
                 <VideoInputForm onCreate={handleCreate} isCreating={isCreating} />
               </div>
-              <p className="text-sm text-muted-foreground mt-4 font-medium">
-                Try a YouTube URL like: tutorials, how-to guides, or lectures. <span className="text-primary">No credit card required.</span>
+              <p className="text-sm text-foreground mt-4 font-bold flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                No credit card required. <span className="text-muted-foreground font-normal">Free 30 credits included.</span>
               </p>
             </motion.div>
           </div>
@@ -151,9 +157,9 @@ export default function Home() {
       <section className="py-24 bg-muted/30">
         <div className="container px-4 md:px-6">
           <div className="text-center mb-16 space-y-4">
-            <h2 className="text-3xl font-bold tracking-tight">How StepSnip Works</h2>
+            <h2 className="text-3xl font-bold tracking-tight">Stop Wasting Hours on Manual Notes</h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              We handle the tedious work of watching, pausing, and screenshotting so you don't have to.
+              We do the heavy lifting. You get the knowledge.
             </p>
           </div>
 
@@ -165,9 +171,9 @@ export default function Home() {
                 <div className="w-16 h-16 rounded-2xl bg-red-100 flex items-center justify-center text-red-600 mb-2">
                   <Youtube className="w-8 h-8" />
                 </div>
-                <h3 className="text-xl font-bold">1. Paste URL</h3>
+                <h3 className="text-xl font-bold">1. Drop the Link</h3>
                 <p className="text-muted-foreground">
-                  Simply paste the link to any YouTube tutorial, lecture, or how-to video.
+                  Paste any YouTube tutorial. Our AI starts "watching" immediately.
                 </p>
               </div>
               {/* Connector */}
@@ -183,9 +189,9 @@ export default function Home() {
                 <div className="w-16 h-16 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-600 mb-2">
                   <Sparkles className="w-8 h-8 animate-pulse" />
                 </div>
-                <h3 className="text-xl font-bold">2. AI Processing</h3>
+                <h3 className="text-xl font-bold">2. AI "Sees" the Steps</h3>
                 <p className="text-muted-foreground">
-                  Our AI identifies key steps, summarizes content, and captures perfect screenshots.
+                  Beyond transcription—we capture the exact frames where the magic happens.
                 </p>
               </div>
               {/* Connector */}
@@ -201,9 +207,9 @@ export default function Home() {
                 <div className="w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center text-green-600 mb-2">
                   <FileText className="w-8 h-8" />
                 </div>
-                <h3 className="text-xl font-bold">3. Get Guide</h3>
+                <h3 className="text-xl font-bold">3. Learn in Seconds</h3>
                 <p className="text-muted-foreground">
-                  Instantly get a structured, readable article ready to read, share, or export.
+                  Get a searchable, skimmable article. Export to Notion, Obsidian, or PDF.
                 </p>
               </div>
             </div>
@@ -219,9 +225,9 @@ export default function Home() {
         <div className="container px-4 md:px-6">
           <div className="grid lg:grid-cols-3 gap-8">
             {[
-              { icon: <Zap className="w-6 h-6" />, title: "Instant Summaries", desc: "Get the gist without watching the whole video." },
-              { icon: <ImageIcon className="w-6 h-6" />, title: "Smart Screenshots", desc: "We capture the perfect frame for each step." },
-              { icon: <FileText className="w-6 h-6" />, title: "Structured Content", desc: "Export clean Markdown or HTML automatically." }
+              { icon: <Zap className="w-6 h-6" />, title: "Forget the Fluff", desc: "Get the 2-minute summary of a 30-minute rambling video." },
+              { icon: <ImageIcon className="w-6 h-6" />, title: "Perfect Frame Capture", desc: "Never squint at blurry timestamps again. We grab the 4K source." },
+              { icon: <FileText className="w-6 h-6" />, title: "Developer Ready", desc: "Markdown and HTML export. Perfect for documentation." }
             ].map((item, i) => (
               <div key={i} className="flex gap-4 p-6 rounded-xl border bg-card hover:bg-muted/50 transition-colors">
                 <div className="mt-1 bg-primary/10 p-2 rounded-lg h-fit text-primary">

@@ -53,7 +53,7 @@ export default function VideoInputForm({ onCreate, isCreating }: VideoInputFormP
                             Processing
                         </>
                     ) : (
-                        "Generate Guide"
+                        "Build My Guide — Free"
                     )}
                 </Button>
             </div>

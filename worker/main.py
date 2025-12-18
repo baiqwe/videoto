@@ -138,21 +138,24 @@ def download_video(url: str, output_path: Path) -> Dict:
         'extractor_args': {'youtube': {'player_client': ['android']}},
         # Imitate Android Phone
         'user_agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        
+        # Disable cache to prevent read-only filesystem issues
+        'no_cache_dir': True,
     }
     
     if proxy_url:
         ydl_opts_video['proxy'] = proxy_url
 
-    # Cookies disabled for Docker compatibility (read-only filesystem)
-    # If you need to bypass YouTube bot detection:
-    # 1. Mount /tmp as writable volume in Docker
-    # 2. Copy cookies.txt to /tmp/cookies.txt inside container
-    # 3. Uncomment the code below
-    
-    # cookies_file = Path('/tmp/cookies.txt')
-    # if cookies_file.exists():
-    #     print(f"   🍪 Using cookies from {cookies_file}")
-    #     ydl_opts_video['cookiefile'] = str(cookies_file)
+    # Anti-bot Measure: Use cookies.txt if available (Best practice)
+    # If not, try browser cookies (Local dev fallback)
+    # NOTE: Cookies file is OPTIONAL. If missing, Android client should handle most videos.
+    cookies_file = Path('cookies.txt')
+    if cookies_file.exists():
+        print(f"   🍪 Using cookies from {cookies_file.name}")
+        ydl_opts_video['cookiefile'] = str(cookies_file)
+    else:
+        # No cookies - rely on Android client emulation
+        pass
     
     with yt_dlp.YoutubeDL(ydl_opts_video) as ydl:
         info = ydl.extract_info(url, download=True)

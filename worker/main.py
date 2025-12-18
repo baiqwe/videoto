@@ -143,20 +143,16 @@ def download_video(url: str, output_path: Path) -> Dict:
     if proxy_url:
         ydl_opts_video['proxy'] = proxy_url
 
-    # Anti-bot Measure: Use cookies.txt if available (Best practice)
-    # Use /tmp directory for Docker compatibility (root FS is read-only)
-    cookies_file = Path('/tmp/cookies.txt')
-    # Fallback: check current directory (for local dev)
-    if not cookies_file.exists():
-        cookies_file = Path('cookies.txt')
+    # Cookies disabled for Docker compatibility (read-only filesystem)
+    # If you need to bypass YouTube bot detection:
+    # 1. Mount /tmp as writable volume in Docker
+    # 2. Copy cookies.txt to /tmp/cookies.txt inside container
+    # 3. Uncomment the code below
     
-    if cookies_file.exists():
-        print(f"   🍪 Using cookies from {cookies_file}")
-        ydl_opts_video['cookiefile'] = str(cookies_file)
-    else:
-        # Fallback to chrome cookies for local dev if file missing
-        # ydl_opts_video['cookiesfrombrowser'] = ('chrome',) 
-        pass
+    # cookies_file = Path('/tmp/cookies.txt')
+    # if cookies_file.exists():
+    #     print(f"   🍪 Using cookies from {cookies_file}")
+    #     ydl_opts_video['cookiefile'] = str(cookies_file)
     
     with yt_dlp.YoutubeDL(ydl_opts_video) as ydl:
         info = ydl.extract_info(url, download=True)

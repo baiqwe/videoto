@@ -7,9 +7,14 @@ export function Logo() {
       href="/"
       className="flex items-center gap-2 hover:opacity-90 transition-opacity"
     >
-      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary font-bold text-lg">
-        S
-      </div>
+      <Image
+        src="/favicon.svg"
+        alt="StepSnip Logo"
+        width={32}
+        height={32}
+        className="w-8 h-8"
+        priority
+      />
       <span className="font-bold text-lg bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
         StepSnip
       </span>

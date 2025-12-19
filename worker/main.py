@@ -99,6 +99,131 @@ def get_dynamic_prompt(default_prompt: str, prompt_key: str = 'gemini_video_prom
     return default_prompt
 
 
+def download_via_cobalt(url: str, output_path: Path) -> Dict:
+    """
+    Download video via Cobalt API (cookie-free alternative to yt-dlp)
+    
+    Cobalt API acts as a download proxy, bypassing YouTube's bot detection.
+    No cookies needed! Multiple public instances supported with automatic fallback.
+    
+    Returns:
+        Dict with video info (same format as download_video for compatibility)
+    """
+    print(f"🌍 Attempting download via Cobalt API...")
+    
+    # Multiple public instances for redundancy (updated Dec 2024)
+    COBALT_INSTANCES = [
+        os.getenv("COBALT_API_INSTANCE"),  # User-configured instance (priority)
+        "https://api.cobalt.tools",        # Official instance
+        "https://cobalt.api.timelessnesses.me",  # Community instance
+        "https://co.wuk.sh",               # Alternative domain
+    ]
+    
+    # Filter out None values
+    instances = [inst for inst in COBALT_INSTANCES if inst]
+    
+    for instance_url in instances:
+        try:
+            print(f"   Trying instance: {instance_url}")
+            api_endpoint = f"{instance_url}/api/json"
+            
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+            
+            payload = {
+                "url": url,
+                "vQuality": "720",      # 720p for balance (compatible with our processing)
+                "vCodec": "h264",       # H264 for OpenCV compatibility
+                "aFormat": "mp3",       # Audio format
+                "filenamePattern": "basic",
+                "isAudioOnly": False,
+            }
+            
+            # Request download link from Cobalt
+            response = requests.post(api_endpoint, json=payload, headers=headers, timeout=30)
+            
+            if response.status_code != 200:
+                print(f"   ⚠️  Instance returned {response.status_code}, trying next...")
+                continue
+                
+            data = response.json()
+            
+            # Handle different response statuses
+            if data.get("status") == "error":
+                error_msg = data.get("text", "Unknown error")
+                print(f"   ⚠️  Cobalt error: {error_msg}")
+                continue
+            
+            if data.get("status") not in ["stream", "redirect", "tunnel"]:
+                print(f"   ⚠️  Unexpected status: {data.get('status')}")
+                continue
+                
+            download_url = data.get("url")
+            if not download_url:
+                print(f"   ⚠️  No download URL in response")
+                continue
+            
+            print(f"   ✅ Got download link from {instance_url}")
+            
+            # Extract video ID from original URL
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(url)
+            query_params = parse_qs(parsed.query)
+            video_id = query_params.get('v', ['unknown'])[0]
+            
+            # Download the actual video file
+            video_filename = f"{video_id}.mp4"
+            video_path = output_path / video_filename
+            
+            print(f"   ⬇️  Downloading to {video_filename}...")
+            
+            with requests.get(download_url, stream=True, headers=headers, timeout=300) as r:
+                r.raise_for_status()
+                total_size = int(r.headers.get('content-length', 0))
+                downloaded = 0
+                
+                with open(video_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=1024*1024):  # 1MB chunks
+                        if chunk:
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total_size > 0:
+                                progress = (downloaded / total_size) * 100
+                                print(f"   Progress: {progress:.1f}%", end='\r')
+                
+                print(f"\n   ✅ Download complete: {video_path.name}")
+            
+            # Get video duration using ffmpeg
+            duration = 0
+            try:
+                probe = ffmpeg.probe(str(video_path))
+                duration = float(probe['format']['duration'])
+                print(f"   🎬 Video duration: {duration:.1f}s")
+            except Exception as e:
+                print(f"   ⚠️  Could not probe duration: {e}")
+            
+            return {
+                'file_path': video_path,
+                'subtitle_path': None,  # Cobalt doesn't provide subtitles
+                'duration': duration,
+                'title': f"Video {video_id}",
+                'video_id': video_id,
+            }
+            
+        except requests.exceptions.Timeout:
+            print(f"   ⏱️  Timeout on {instance_url}, trying next...")
+            continue
+        except Exception as e:
+            print(f"   ❌ Error with {instance_url}: {e}")
+            continue
+    
+    # All instances failed
+    raise Exception("All Cobalt API instances failed. Falling back to yt-dlp.")
+
+
 def download_video(url: str, output_path: Path) -> Dict:
     """
     Download video and subtitles from YouTube using yt-dlp
@@ -146,16 +271,49 @@ def download_video(url: str, output_path: Path) -> Dict:
     if proxy_url:
         ydl_opts_video['proxy'] = proxy_url
 
-    # Anti-bot Measure: Use cookies.txt if available (Best practice)
-    # If not, try browser cookies (Local dev fallback)
-    # NOTE: Cookies file is OPTIONAL. If missing, Android client should handle most videos.
-    cookies_file = Path('cookies.txt')
-    if cookies_file.exists():
-        print(f"   🍪 Using cookies from {cookies_file.name}")
-        ydl_opts_video['cookiefile'] = str(cookies_file)
-    else:
-        # No cookies - rely on Android client emulation
-        pass
+    # === COOKIE AUTHENTICATION (REQUIRED FOR YOUTUBE) ===
+    # YouTube now requires cookies to bypass bot detection
+    # We support multiple sources in priority order:
+    
+    cookies_configured = False
+    
+    # Priority 1: Environment variable (recommended for production)
+    cookies_env = os.getenv('YOUTUBE_COOKIES')
+    if cookies_env:
+        cookies_file = Path('/tmp/youtube_cookies.txt')
+        try:
+            cookies_file.write_text(cookies_env)
+            ydl_opts_video['cookiefile'] = str(cookies_file)
+            print(f"   🍪 Using cookies from YOUTUBE_COOKIES environment variable")
+            cookies_configured = True
+        except Exception as e:
+            print(f"   ⚠️  Failed to write cookies from env: {e}")
+    
+    # Priority 2: Check common mount paths (Zeabur persistent storage, etc.)
+    if not cookies_configured:
+        cookie_paths = [
+            Path('/data/cookies.txt'),          # Zeabur persistent storage
+            Path('/app/data/cookies.txt'),      # Alternative mount point
+            Path('/mnt/cookies.txt'),           # Generic mount point
+            Path('/app/cookies.txt'),           # Current directory in container
+            Path('cookies.txt'),                # Local development
+        ]
+        
+        for cookie_path in cookie_paths:
+            if cookie_path.exists():
+                ydl_opts_video['cookiefile'] = str(cookie_path)
+                print(f"   🍪 Using cookies from: {cookie_path}")
+                cookies_configured = True
+                break
+    
+    # Warning if no cookies found
+    if not cookies_configured:
+        print("   ❌ ERROR: No cookies found! YouTube will block requests.")
+        print("   💡 Solutions:")
+        print("      1. Set YOUTUBE_COOKIES environment variable, OR")
+        print("      2. Mount cookies.txt to /data/cookies.txt, OR")
+        print("      3. Place cookies.txt in worker/ directory")
+        print("   📖 See worker/COOKIES_SETUP_GUIDE.md for details")
     
     with yt_dlp.YoutubeDL(ydl_opts_video) as ydl:
         info = ydl.extract_info(url, download=True)
@@ -828,7 +986,22 @@ def process_project(project: Dict):
         project_dir.mkdir(exist_ok=True)
         
         # Step 1: Download video and subtitles
-        video_info = download_video(video_url, project_dir)
+        # Strategy: Try Cobalt API first (no cookies needed), fallback to yt-dlp if fails
+        video_info = None
+        try:
+            print("🚀 Using Cobalt API (cookie-free downloader)...")
+            video_info = download_via_cobalt(video_url, project_dir)
+            print("✅ Cobalt download successful!")
+        except Exception as cobalt_error:
+            print(f"⚠️  Cobalt failed: {cobalt_error}")
+            print("🔄 Falling back to yt-dlp (requires cookies)...")
+            try:
+                video_info = download_video(video_url, project_dir)
+                print("✅ yt-dlp download successful!")
+            except Exception as ytdlp_error:
+                print(f"❌ yt-dlp also failed: {ytdlp_error}")
+                raise Exception(f"Both downloaders failed. Cobalt: {cobalt_error}, yt-dlp: {ytdlp_error}")
+        
         video_path = video_info['file_path']
         subtitle_path = video_info.get('subtitle_path')
         duration = video_info['duration']

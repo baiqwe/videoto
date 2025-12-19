@@ -135,21 +135,28 @@ def download_via_cobalt(url: str, output_path: Path) -> Dict:
             
             payload = {
                 "url": url,
-                "vQuality": "720",      # 720p for balance (compatible with our processing)
+                "vQuality": "720",      # 720p for balance
                 "vCodec": "h264",       # H264 for OpenCV compatibility
-                "aFormat": "mp3",       # Audio format
                 "filenamePattern": "basic",
                 "isAudioOnly": False,
             }
             
             # Request download link from Cobalt
+            print(f"   📡 Sending request to {api_endpoint}...")
             response = requests.post(api_endpoint, json=payload, headers=headers, timeout=30)
             
+            print(f"   📥 Response status: {response.status_code}")
+            
             if response.status_code != 200:
-                print(f"   ⚠️  Instance returned {response.status_code}, trying next...")
+                try:
+                    error_detail = response.json()
+                    print(f"   ⚠️  API Error: {error_detail}")
+                except:
+                    print(f"   ⚠️  Status {response.status_code}: {response.text[:200]}")
                 continue
                 
             data = response.json()
+            print(f"   📦 Response data: {data}")
             
             # Handle different response statuses
             if data.get("status") == "error":
@@ -157,7 +164,7 @@ def download_via_cobalt(url: str, output_path: Path) -> Dict:
                 print(f"   ⚠️  Cobalt error: {error_msg}")
                 continue
             
-            if data.get("status") not in ["stream", "redirect", "tunnel"]:
+            if data.get("status") not in ["stream", "redirect", "tunnel", "success"]:
                 print(f"   ⚠️  Unexpected status: {data.get('status')}")
                 continue
                 
@@ -301,10 +308,19 @@ def download_video(url: str, output_path: Path) -> Dict:
         
         for cookie_path in cookie_paths:
             if cookie_path.exists():
-                ydl_opts_video['cookiefile'] = str(cookie_path)
-                print(f"   🍪 Using cookies from: {cookie_path}")
-                cookies_configured = True
-                break
+                # CRITICAL FIX: Copy to /tmp to avoid read-only filesystem errors
+                # yt-dlp may try to UPDATE cookies, which fails on read-only /app
+                temp_cookies = Path('/tmp/youtube_cookies_from_file.txt')
+                try:
+                    import shutil
+                    shutil.copy(str(cookie_path), str(temp_cookies))
+                    ydl_opts_video['cookiefile'] = str(temp_cookies)
+                    print(f"   🍪 Using cookies from: {cookie_path} (copied to {temp_cookies})")
+                    cookies_configured = True
+                    break
+                except Exception as e:
+                    print(f"   ⚠️  Failed to copy cookies from {cookie_path}: {e}")
+                    continue
     
     # Warning if no cookies found
     if not cookies_configured:

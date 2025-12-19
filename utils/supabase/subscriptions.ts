@@ -23,7 +23,7 @@ export async function createOrUpdateCustomer(
     const { error } = await supabase
       .from("customers")
       .update({
-        email: creemCustomer.email,
+        // Note: Do NOT update email - it should remain the user's auth.users email
         name: creemCustomer.name,
         country: creemCustomer.country,
         updated_at: new Date().toISOString(),
@@ -55,7 +55,7 @@ export async function createOrUpdateCustomer(
       .from("customers")
       .update({
         creem_customer_id: creemCustomer.id,
-        email: creemCustomer.email,
+        // Note: Do NOT update email - it should remain the user's auth.users email
         name: creemCustomer.name,
         country: creemCustomer.country,
         updated_at: new Date().toISOString(),

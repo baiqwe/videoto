@@ -140,8 +140,14 @@ def download_video(url: str, output_path: Path) -> Dict:
         'nopart': True, # Write directly to output file, avoid rename errors
         'external_downloader': 'native',
         
-        # Use Android Client (The ONLY working bypass for 403 Forbidden)
-        'extractor_args': {'youtube': {'player_client': ['android']}},
+        # Use Android Client + Additional bypass tokens
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android'],
+                # Optional: Add PO_TOKEN and VISITOR_DATA if available
+                # These can be extracted from browser requests to help bypass bot detection
+            }
+        },
         # Imitate Android Phone
         'user_agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
         
@@ -159,13 +165,33 @@ def download_video(url: str, output_path: Path) -> Dict:
     cookies_configured = False
     
     # Priority 1: Environment variable (recommended for production)
+    # Support both plain text and base64 encoded cookies
     cookies_env = os.getenv('YOUTUBE_COOKIES')
-    if cookies_env:
+    cookies_b64 = os.getenv('YOUTUBE_COOKIES_B64')  # Base64 encoded version
+    
+    if cookies_b64:
+        # Decode from base64 (avoids newline issues in env vars)
+        try:
+            import base64
+            cookies_content = base64.b64decode(cookies_b64).decode('utf-8')
+            cookies_file = Path('/tmp/youtube_cookies.txt')
+            cookies_file.write_text(cookies_content)
+            ydl_opts_video['cookiefile'] = str(cookies_file)
+            print(f"   🍪 Using cookies from YOUTUBE_COOKIES_B64 environment variable")
+            cookies_configured = True
+        except Exception as e:
+            print(f"   ⚠️  Failed to decode base64 cookies: {e}")
+    
+    elif cookies_env:
         cookies_file = Path('/tmp/youtube_cookies.txt')
         try:
-            cookies_file.write_text(cookies_env)
+            # Fix potential newline issues in environment variables
+            # Replace literal \n with actual newlines
+            cookies_content = cookies_env.replace('\\n', '\n')
+            cookies_file.write_text(cookies_content)
             ydl_opts_video['cookiefile'] = str(cookies_file)
             print(f"   🍪 Using cookies from YOUTUBE_COOKIES environment variable")
+            print(f"   📋 Cookie file size: {len(cookies_content)} chars")
             cookies_configured = True
         except Exception as e:
             print(f"   ⚠️  Failed to write cookies from env: {e}")

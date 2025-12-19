@@ -50,4 +50,4 @@ Chinesename.club/
 # worker artifacts
 *.vtt
 migration.sql
-worker/cookies.txt
+# worker/cookies.txt  <-- COMMENTED OUT: Need this file for Docker build

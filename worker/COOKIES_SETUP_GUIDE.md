@@ -1,137 +1,181 @@
-# 方案B：通过环境变量配置YouTube Cookies（推荐）
+# 🔧 YouTube Cookie 配置指南（最新 - 2025年12月）
 
-## ✅ 优势
+## ⚠️ 重要更新
 
-- **安全性高**：不将敏感信息提交到Git
-- **易于更新**：直接在Zeabur面板修改环境变量
-- **符合最佳实践**：敏感数据与代码分离
+YouTube现在对cookie格式要求更严格。如果你遇到"Sign in to confirm you're not a bot"错误，请使用**Base64编码方式**配置cookies。
 
 ---
 
-## 📋 操作步骤
+## 🚀 推荐方法：使用 Base64 编码（解决换行符问题）
 
-### 1. 导出Cookies文件
+### 为什么需要Base64？
 
-#### 选项A：使用浏览器插件（推荐）
-1. 安装Chrome插件：[Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
-2. 登录 youtube.com
-3. 点击插件图标 → Export cookies
-4. 复制导出的文本内容
+Zeabur等平台的环境变量可能会破坏cookies.txt中的换行符，导致YouTube认证失败。Base64编码可以完美避免这个问题。
 
-#### 选项B：手动导出
-1. 打开YouTube → F12开发者工具 → Application/应用 → Cookies
-2. 复制所有cookie（但插件更简单）
+### 📋 配置步骤
 
----
+#### 1. 导出最新的YouTube Cookies
 
-### 2. 在Zeabur配置环境变量
+使用Chrome插件：[Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
 
-#### 步骤：
-1. 登录 [Zeabur Dashboard](https://zeabur.com)
-2. 选择您的Worker服务
-3. 点击 **Variables（环境变量）**
-4. 添加新变量：
-   - **变量名**: `YOUTUBE_COOKIES`
-   - **值**: 粘贴您导出的完整cookies.txt内容
+1. 登录 youtube.com（确保能正常观看视频）
+2. 点击插件图标 → **Export for "youtube.com"**
+3. 将导出的内容保存为 `worker/cookies.txt`
 
-   ```
-   示例格式：
-   # Netscape HTTP Cookie File
-   .youtube.com    TRUE    /    TRUE    1735689600    CONSENT    YES+...
-   .youtube.com    TRUE    /    FALSE   1735689600    VISITOR_INFO1_LIVE    ABC123...
-   ```
+#### 2. 转换为Base64格式
 
-5. 点击**保存并重启服务**
-
----
-
-### 3. 验证配置
-
-推送代码后，查看Worker日志应显示：
-```
-📥 Downloading video and subtitles from: https://...
-   🍪 Using cookies from environment variable  ✅
-```
-
-如果显示：
-```
-⚠️  No cookies found. YouTube may block requests.
-```
-则说明环境变量未正确设置。
-
----
-
-## 🔄 定期更新Cookies
-
-YouTube cookies通常6-12个月过期。如果遇到认证错误：
-
-1. 重新导出最新cookies
-2. 更新Zeabur环境变量 `YOUTUBE_COOKIES`
-3. 重启Worker服务
-
----
-
-## 🛠️ 本地开发
-
-本地开发时，代码会自动回退到读取 `worker/cookies.txt` 文件：
+在worker目录运行：
 
 ```bash
-# 在worker目录创建cookies.txt
 cd worker
-# 粘贴你导出的cookies内容
-nano cookies.txt
+python3 encode_cookies.py
 ```
 
-**注意**：`worker/cookies.txt` 已在 `.gitignore` 中忽略，不会提交到Git。
+脚本会自动：
+- 读取 `cookies.txt`
+- 转换为Base64格式
+- 复制到剪贴板（macOS）
+- 保存到 `cookies_base64.txt`
+
+#### 3. 在Zeabur配置环境变量
+
+1. 登录 [Zeabur Dashboard](https://zeabur.com)
+2. 选择你的 **Worker 服务**
+3. 点击 **Variables（环境变量）**
+4. 添加新变量：
+   - **变量名**: `YOUTUBE_COOKIES_B64`
+   - **值**: 粘贴刚才复制的Base64字符串
+5. **删除旧变量** `YOUTUBE_COOKIES`（如果存在）
+6. 点击**保存并重启服务**
 
 ---
 
-## 🔒 安全提示
+## ✅ 验证配置
 
-- ⚠️ **永远不要将cookies内容提交到公开仓库**
-- 🔐 Zeabur的环境变量是加密存储的
-- 🔄 定期轮换cookies（建议每3个月）
-- 🚫 如果cookies泄露，立即在YouTube账号中登出所有设备
+部署后，查看Worker日志，应该显示：
+
+```
+📥 Downloading video and subtitles from: https://...
+   🍪 Using cookies from YOUTUBE_COOKIES_B64 environment variable
+   📋 Cookie file size: 1563 chars
+[youtube] Extracting URL: ...
+✅ Downloaded video: ...
+```
+
+如果仍然失败，检查：
+
+1. **Cookie是否最新**：重新导出cookies（建议用无痕模式登录YouTube后导出）
+2. **是否删除了旧变量**：确保只有 `YOUTUBE_COOKIES_B64`，没有 `YOUTUBE_COOKIES`
+3. **是否重启了服务**：修改环境变量后必须重启
 
 ---
 
-## ❓ 故障排查
+## 📊 环境变量优先级
 
-### 问题1：仍然提示"Sign in to confirm you're not a bot"
+代码按以下顺序查找cookies：
 
-**原因**：环境变量格式错误或cookies过期
+1. ✅ **YOUTUBE_COOKIES_B64** (Base64编码) - 推荐
+2. **YOUTUBE_COOKIES** (纯文本) - 可能有换行符问题
+3. `/data/cookies.txt` (Zeabur持久化存储挂载)
+4. `/app/cookies.txt` (容器内部)
+5. `cookies.txt` (本地开发)
+
+---
+
+## 🔄 Cookie更新频率
+
+- YouTube cookies通常 **6-12个月过期**
+- 建议每 **3个月更新一次**
+- 如果遇到认证错误，立即更新
+
+### 快速更新流程：
+
+```bash
+# 1. 重新导出cookies到 worker/cookies.txt
+# 2. 重新编码
+cd worker
+python3 encode_cookies.py
+
+# 3. 复制到剪贴板后，更新Zeabur环境变量
+```
+
+---
+
+## 🛡️ 安全提示
+
+- ⚠️ **永远不要将cookies提交到Git**
+- 🔐 定期轮换cookies（每3个月）
+- 🚫 如果cookies泄露，立即在YouTube登出所有设备
+- ✅ Base64只是编码，不是加密（不要以为很安全）
+
+---
+
+## 🐛 故障排查
+
+### 问题1：仍然提示 "Sign in to confirm you're not a bot"
+
+**可能原因**：
+1. Cookie已过期或无效
+2. YouTube检测到服务器IP（Zeabur的IP可能被标记）
+3. Cookie格式仍有问题
+
+**解决方案**：
+```bash
+# 1. 使用无痕模式重新登录YouTube并导出cookies
+# 2. 确保cookie包含这些关键字段：
+#    - __Secure-3PSID
+#    - __Secure-3PAPISID
+#    - VISITOR_INFO1_LIVE
+#    - VISITOR_PRIVACY_METADATA
+
+# 3. 验证Base64编码正确
+python3 -c "
+import base64
+with open('cookies_base64.txt', 'r') as f:
+    b64 = f.read().strip()
+    decoded = base64.b64decode(b64).decode('utf-8')
+    print('✅ Decoded cookies preview:')
+    print(decoded[:200])
+"
+```
+
+### 问题2：Worker日志显示 "Failed to decode base64 cookies"
 
 **解决**：
-1. 确认环境变量名称完全是 `YOUTUBE_COOKIES`（区分大小写）
-2. 确认粘贴了**完整**的cookies文件内容（包括注释行）
-3. 重新导出最新的cookies
+- 确保复制的Base64字符串完整（没有多余空格或换行）
+- 重新运行 `python3 encode_cookies.py`
 
-### 问题2：Worker日志显示"Failed to write cookies from env"
+### 问题3：YouTube频繁要求验证
 
-**原因**：可能是特殊字符编码问题
+**说明**：YouTube可能对Zeabur的服务器IP有限制。
 
-**解决**：
-1. 使用Base64编码cookies内容：
-   ```bash
-   cat cookies.txt | base64 > cookies_base64.txt
-   ```
-2. 修改代码解码（可选，通常不需要）
+**备选方案**：
+1. 考虑使用代理服务器（设置 `HTTPS_PROXY` 环境变量）
+2. 使用 [Cobalt API](https://github.com/wukko/cobalt) 作为主要下载方式（另见 `COBALT_API_GUIDE.md`）
 
 ---
 
-## 📊 方案对比
+## 📞 需要帮助？
 
-| 特性 | 方案A（提交到Git） | 方案B（环境变量） |
-|------|-------------------|------------------|
-| 安全性 | ⚠️ 低（敏感信息在代码库） | ✅ 高（加密存储） |
-| 更新便捷性 | ⚠️ 需重新commit推送 | ✅ 直接修改env |
-| 适用场景 | 私有仓库+个人项目 | 生产环境推荐 |
-| 轮换难度 | 中等 | 简单 |
+如果按照以上步骤仍无法解决，请检查：
 
-**推荐**：生产环境使用方案B，本地开发可用方案A的本地文件。
+1. ✅ 是否使用最新的 `main.py`（包含Base64支持）
+2. ✅ 是否在正常浏览器中能访问YouTube视频
+3. ✅ 导出的cookies是否包含所有必需字段
 
 ---
 
-## ✅ 完成确认
+## ✨ 本地开发
 
-配置完成后，尝试生成一个Guide，如果成功下载YouTube视频即表示配置正确！
+本地开发时，代码会自动读取 `worker/cookies.txt`：
+
+```bash
+cd worker
+# 将导出的cookies粘贴到这个文件
+nano cookies.txt
+
+# 直接运行worker（本地不需要Base64）
+python3 main.py
+```
+
+**注意**：`cookies.txt` 和 `cookies_base64.txt` 已在 `.gitignore` 中，不会提交到Git。

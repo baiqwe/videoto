@@ -11,6 +11,11 @@ export const size = {
 export const contentType = 'image/png'
 
 export default async function Image() {
+    // Read the logo file
+    const logoData = await fetch(
+        new URL('../public/web-app-manifest-512x512.png', import.meta.url)
+    ).then((res) => res.arrayBuffer())
+
     return new ImageResponse(
         (
             <div
@@ -32,13 +37,25 @@ export default async function Image() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexDirection: 'column',
+                        gap: 40,
                     }}
                 >
+                    {/* Logo */}
+                    <img
+                        // @ts-ignore
+                        src={logoData}
+                        alt="StepSnip Logo"
+                        width="200"
+                        height="200"
+                        style={{
+                            borderRadius: '32px',
+                        }}
+                    />
+                    {/* Title */}
                     <div
                         style={{
                             fontSize: 80,
                             fontWeight: 'bold',
-                            marginBottom: 20,
                             display: 'flex',
                             alignItems: 'center',
                             letterSpacing: '-0.05em',
@@ -46,6 +63,7 @@ export default async function Image() {
                     >
                         StepSnip
                     </div>
+                    {/* Description */}
                     <div
                         style={{
                             fontSize: 32,

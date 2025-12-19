@@ -7,6 +7,7 @@ export async function createOrUpdateCustomer(
 ) {
   const supabase = createServiceRoleClient();
 
+  // First, try to find customer by Creem customer ID
   const { data: existingCustomer, error: fetchError } = await supabase
     .from("customers")
     .select()
@@ -17,6 +18,7 @@ export async function createOrUpdateCustomer(
     throw fetchError;
   }
 
+  // If found by Creem ID, update and return
   if (existingCustomer) {
     const { error } = await supabase
       .from("customers")
@@ -32,6 +34,39 @@ export async function createOrUpdateCustomer(
     return existingCustomer.id;
   }
 
+  // If not found by Creem ID, check if a customer exists for this user_id
+  // This handles the case where the user has an auto-created customer record
+  const { data: existingUserCustomer, error: userFetchError } = await supabase
+    .from("customers")
+    .select()
+    .eq("user_id", userId)
+    .single();
+
+  if (userFetchError && userFetchError.code !== "PGRST116") {
+    throw userFetchError;
+  }
+
+  // If found by user_id, update with real Creem customer data
+  if (existingUserCustomer) {
+    console.log(
+      `Upgrading auto-created customer record for user ${userId} with Creem ID ${creemCustomer.id}`
+    );
+    const { error } = await supabase
+      .from("customers")
+      .update({
+        creem_customer_id: creemCustomer.id,
+        email: creemCustomer.email,
+        name: creemCustomer.name,
+        country: creemCustomer.country,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existingUserCustomer.id);
+
+    if (error) throw error;
+    return existingUserCustomer.id;
+  }
+
+  // No existing customer found, create new one
   const { data: newCustomer, error } = await supabase
     .from("customers")
     .insert({

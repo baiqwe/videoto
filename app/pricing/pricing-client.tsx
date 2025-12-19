@@ -40,7 +40,7 @@ const PLANS = [
     },
     {
         name: "Pro Creator",
-        price: "$19",
+        price: "$29.9",
         period: "/mo",
         description: "For serious content repurposing.",
         features: [
@@ -179,8 +179,8 @@ export default function PricingPageClient() {
                         <Card
                             key={plan.name}
                             className={`flex flex-col relative transition-all duration-200 ${plan.popular
-                                    ? "border-primary shadow-lg scale-105 z-10"
-                                    : "border-border hover:border-primary/50"
+                                ? "border-primary shadow-lg scale-105 z-10"
+                                : "border-border hover:border-primary/50"
                                 }`}
                         >
                             {plan.popular && (

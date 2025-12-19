@@ -36,12 +36,11 @@ export async function POST(request: Request) {
             },
             body: JSON.stringify({
                 product_id: priceId,
-                customer_email: user.email,
                 success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?checkout=success`,
-                cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/pricing?checkout=cancel`,
                 // 🔥 关键：将 User ID 和产品类型传入 metadata，以便 Webhook 识别
                 metadata: {
                     user_id: user.id,
+                    user_email: user.email, // 将email放在metadata中
                     product_type: productType || "subscription",
                     ...(credits && { credits: parseInt(credits) }),
                 },

@@ -99,138 +99,6 @@ def get_dynamic_prompt(default_prompt: str, prompt_key: str = 'gemini_video_prom
     return default_prompt
 
 
-def download_via_cobalt(url: str, output_path: Path) -> Dict:
-    """
-    Download video via Cobalt API (cookie-free alternative to yt-dlp)
-    
-    Cobalt API acts as a download proxy, bypassing YouTube's bot detection.
-    No cookies needed! Multiple public instances supported with automatic fallback.
-    
-    Returns:
-        Dict with video info (same format as download_video for compatibility)
-    """
-    print(f"🌍 Attempting download via Cobalt API...")
-    
-    # Multiple public instances for redundancy (updated Dec 2024)
-    COBALT_INSTANCES = [
-        os.getenv("COBALT_API_INSTANCE"),  # User-configured instance (priority)
-        "https://api.cobalt.tools",        # Official instance
-        "https://cobalt.api.timelessnesses.me",  # Community instance
-        "https://co.wuk.sh",               # Alternative domain
-    ]
-    
-    # Filter out None values
-    instances = [inst for inst in COBALT_INSTANCES if inst]
-    
-    for instance_url in instances:
-        try:
-            print(f"   Trying instance: {instance_url}")
-            api_endpoint = f"{instance_url}/api/json"
-            
-            headers = {
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            }
-            
-            payload = {
-                "url": url,
-                "vQuality": "720",      # 720p for balance
-                "vCodec": "h264",       # H264 for OpenCV compatibility
-                "filenamePattern": "basic",
-                "isAudioOnly": False,
-            }
-            
-            # Request download link from Cobalt
-            print(f"   📡 Sending request to {api_endpoint}...")
-            response = requests.post(api_endpoint, json=payload, headers=headers, timeout=30)
-            
-            print(f"   📥 Response status: {response.status_code}")
-            
-            if response.status_code != 200:
-                try:
-                    error_detail = response.json()
-                    print(f"   ⚠️  API Error: {error_detail}")
-                except:
-                    print(f"   ⚠️  Status {response.status_code}: {response.text[:200]}")
-                continue
-                
-            data = response.json()
-            print(f"   📦 Response data: {data}")
-            
-            # Handle different response statuses
-            if data.get("status") == "error":
-                error_msg = data.get("text", "Unknown error")
-                print(f"   ⚠️  Cobalt error: {error_msg}")
-                continue
-            
-            if data.get("status") not in ["stream", "redirect", "tunnel", "success"]:
-                print(f"   ⚠️  Unexpected status: {data.get('status')}")
-                continue
-                
-            download_url = data.get("url")
-            if not download_url:
-                print(f"   ⚠️  No download URL in response")
-                continue
-            
-            print(f"   ✅ Got download link from {instance_url}")
-            
-            # Extract video ID from original URL
-            from urllib.parse import urlparse, parse_qs
-            parsed = urlparse(url)
-            query_params = parse_qs(parsed.query)
-            video_id = query_params.get('v', ['unknown'])[0]
-            
-            # Download the actual video file
-            video_filename = f"{video_id}.mp4"
-            video_path = output_path / video_filename
-            
-            print(f"   ⬇️  Downloading to {video_filename}...")
-            
-            with requests.get(download_url, stream=True, headers=headers, timeout=300) as r:
-                r.raise_for_status()
-                total_size = int(r.headers.get('content-length', 0))
-                downloaded = 0
-                
-                with open(video_path, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=1024*1024):  # 1MB chunks
-                        if chunk:
-                            f.write(chunk)
-                            downloaded += len(chunk)
-                            if total_size > 0:
-                                progress = (downloaded / total_size) * 100
-                                print(f"   Progress: {progress:.1f}%", end='\r')
-                
-                print(f"\n   ✅ Download complete: {video_path.name}")
-            
-            # Get video duration using ffmpeg
-            duration = 0
-            try:
-                probe = ffmpeg.probe(str(video_path))
-                duration = float(probe['format']['duration'])
-                print(f"   🎬 Video duration: {duration:.1f}s")
-            except Exception as e:
-                print(f"   ⚠️  Could not probe duration: {e}")
-            
-            return {
-                'file_path': video_path,
-                'subtitle_path': None,  # Cobalt doesn't provide subtitles
-                'duration': duration,
-                'title': f"Video {video_id}",
-                'video_id': video_id,
-            }
-            
-        except requests.exceptions.Timeout:
-            print(f"   ⏱️  Timeout on {instance_url}, trying next...")
-            continue
-        except Exception as e:
-            print(f"   ❌ Error with {instance_url}: {e}")
-            continue
-    
-    # All instances failed
-    raise Exception("All Cobalt API instances failed. Falling back to yt-dlp.")
-
-
 def download_video(url: str, output_path: Path) -> Dict:
     """
     Download video and subtitles from YouTube using yt-dlp
@@ -257,8 +125,14 @@ def download_video(url: str, output_path: Path) -> Dict:
     # First, download video only
     # Configure yt-dlp options
     ydl_opts_video = {
-        # Force h264 (avc) for best OpenCV compatibility
-        'format': 'bestvideo[height<=720][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4][height<=720]',
+        # Flexible format selection with multiple fallbacks
+        # Priority: 720p h264/mp4 > 720p any > best available
+        'format': (
+            'bestvideo[height<=720][vcodec^=avc]+bestaudio/'  # Try h264 720p first
+            'bestvideo[height<=720]+bestaudio/'               # Any codec 720p
+            'best[height<=720]/'                               # Combined stream 720p
+            'best'                                              # Fallback to best available
+        ),
         'outtmpl': str(output_path / '%(id)s.%(ext)s'),
         'quiet': False,
         'no_warnings': False,
@@ -1002,21 +876,10 @@ def process_project(project: Dict):
         project_dir.mkdir(exist_ok=True)
         
         # Step 1: Download video and subtitles
-        # Strategy: Try Cobalt API first (no cookies needed), fallback to yt-dlp if fails
-        video_info = None
-        try:
-            print("🚀 Using Cobalt API (cookie-free downloader)...")
-            video_info = download_via_cobalt(video_url, project_dir)
-            print("✅ Cobalt download successful!")
-        except Exception as cobalt_error:
-            print(f"⚠️  Cobalt failed: {cobalt_error}")
-            print("🔄 Falling back to yt-dlp (requires cookies)...")
-            try:
-                video_info = download_video(video_url, project_dir)
-                print("✅ yt-dlp download successful!")
-            except Exception as ytdlp_error:
-                print(f"❌ yt-dlp also failed: {ytdlp_error}")
-                raise Exception(f"Both downloaders failed. Cobalt: {cobalt_error}, yt-dlp: {ytdlp_error}")
+        # Note: Cobalt API was considered but shutdown on Nov 11, 2024
+        # Using yt-dlp with robust format selection and cookie support
+        print("📥 Downloading video using yt-dlp...")
+        video_info = download_video(video_url, project_dir)
         
         video_path = video_info['file_path']
         subtitle_path = video_info.get('subtitle_path')

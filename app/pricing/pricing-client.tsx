@@ -44,7 +44,8 @@ const PLANS = [
         period: "/mo",
         description: "For serious content repurposing.",
         features: [
-            "50 Video Conversions / month",
+            "500 Credits on Signup",
+            "500 Credits Every Month",
             "Advanced GPT-4 Analysis",
             "SEO Blog Post Generation",
             "Priority Email Support",

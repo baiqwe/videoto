@@ -816,7 +816,7 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
                         {"role": "user", "content": content_payload}
                     ]
 
-                # Manual Requests Call
+                # Manual Requests Call with Retry Logic
                 headers = {
                     "Authorization": f"Bearer {GEMINI_API_KEY}",
                     "Content-Type": "application/json"
@@ -828,12 +828,60 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
                 }
                 
                 print(f"   📡 Sending request to {OPENAI_BASE_URL}/chat/completions...")
-                response = requests.post(
-                    f"{OPENAI_BASE_URL}/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=120  # Longer timeout for aggregation
-                )
+                
+                # Retry logic with exponential backoff
+                max_retries = 3
+                retry_delay = 2
+                last_error = None
+                
+                for attempt in range(max_retries):
+                    try:
+                        response = requests.post(
+                            f"{OPENAI_BASE_URL}/chat/completions",
+                            headers=headers,
+                            json=payload,
+                            timeout=120  # Longer timeout for aggregation
+                        )
+                        
+                        if response.status_code == 200:
+                            # Success!
+                            break
+                        elif response.status_code in [502, 503, 504]:
+                            # Temporary server error - retry
+                            last_error = f"Temporary error {response.status_code}: {response.text[:200]}"
+                            if attempt < max_retries - 1:
+                                wait_time = retry_delay * (2 ** attempt)
+                                print(f"   ⚠️  {last_error}")
+                                print(f"   🔄 Retrying in {wait_time}s... (Attempt {attempt + 2}/{max_retries})")
+                                time.sleep(wait_time)
+                                continue
+                        else:
+                            # Non-retryable error
+                            raise Exception(f"API Error {response.status_code}: {response.text}")
+                    except requests.exceptions.Timeout:
+                        last_error = "Request timeout after 120s"
+                        if attempt < max_retries - 1:
+                            wait_time = retry_delay * (2 ** attempt)
+                            print(f"   ⚠️  {last_error}")
+                            print(f"   🔄 Retrying in {wait_time}s... (Attempt {attempt + 2}/{max_retries})")
+                            time.sleep(wait_time)
+                            continue
+                        else:
+                            raise Exception(last_error)
+                    except requests.exceptions.RequestException as e:
+                        last_error = f"Network error: {str(e)}"
+                        if attempt < max_retries - 1:
+                            wait_time = retry_delay * (2 ** attempt)
+                            print(f"   ⚠️  {last_error}")
+                            print(f"   🔄  Retrying in {wait_time}s... (Attempt {attempt + 2}/{max_retries})")
+                            time.sleep(wait_time)
+                            continue
+                        else:
+                            raise Exception(last_error)
+                
+                # If all retries failed
+                if response.status_code != 200:
+                    raise Exception(f"API failed after {max_retries} attempts: {last_error}")
                 
                 if response.status_code != 200:
                     raise Exception(f"API Error {response.status_code}: {response.text}")

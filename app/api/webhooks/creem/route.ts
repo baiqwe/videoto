@@ -93,9 +93,17 @@ async function handleCheckoutCompleted(event: CreemWebhookEvent) {
         `Purchased ${checkout.metadata?.credits} credits`
       );
     }
-    // If subscription exists, create or update it
+    // If subscription exists, create or update it AND grant initial 500 credits
     else if (checkout.subscription) {
       await createOrUpdateSubscription(checkout.subscription, customerId);
+
+      // Grant 500 initial credits for new subscription
+      await addCreditsToCustomer(
+        customerId,
+        500,
+        checkout.order.id,
+        "Pro Creator subscription - Initial 500 credits"
+      );
     }
   } catch (error) {
     console.error("Error handling checkout completed:", error);
@@ -133,6 +141,14 @@ async function handleSubscriptionPaid(event: CreemWebhookEvent) {
       subscription.metadata?.user_id
     );
     await createOrUpdateSubscription(subscription, customerId);
+
+    // Grant 500 monthly credits on renewal
+    await addCreditsToCustomer(
+      customerId,
+      500,
+      subscription.id,
+      "Pro Creator subscription - Monthly 500 credits renewal"
+    );
   } catch (error) {
     console.error("Error handling subscription paid:", error);
     throw error;

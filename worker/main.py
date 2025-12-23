@@ -352,7 +352,7 @@ def transcribe_with_whisper(audio_path: Path) -> str:
         # Given we switched to 'requests' to fix Broken Pipe, we'll use requests here too.
         
         headers = {
-            "Authorization": f"Bearer {GEMINI_API_KEY}", 
+            "Authorization": f"Bearer {OPENAI_API_KEY}", 
         }
         
         # Note: Aggregators usually use standard OpenAI 'video/audio' endpoint
@@ -716,7 +716,7 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
 
                 # Manual Requests Call with Retry Logic
                 headers = {
-                    "Authorization": f"Bearer {GEMINI_API_KEY}",
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
                     "Content-Type": "application/json"
                 }
                 payload = {

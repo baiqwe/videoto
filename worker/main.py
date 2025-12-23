@@ -609,13 +609,14 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
 
     # --- REFACTORED GENERATION LOGIC ---
 
-    # Adjust model names for Aggregator if needed
-    # Aggregators usually support 'gemini-1.5-flash' directly.
+    # Model priority: gpt-4o-mini first (faster, reliable), then gpt-4o, then gemini as fallback
+    # Gemini models may be unavailable on some relay platforms
     candidate_models = [
-        'gemini-1.5-flash',
-        'gemini-1.5-pro',
-        'gpt-4o', # Fallback if gemini fails on aggregator
-        'gpt-3.5-turbo'
+        'gpt-4o-mini',      # Fast, reliable, cost-effective
+        'gpt-4o',           # More capable but slower
+        'gpt-4-turbo',      # Alternative
+        'gemini-1.5-flash', # May be unavailable on relay
+        'gemini-1.5-pro',   # May be unavailable on relay
     ]
     
     last_exception = None
@@ -629,8 +630,35 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
             if has_transcript:
                 print("   📄 Using Transcript Mode")
                 final_prompt = prompt.replace('{transcript}', transcript_text)
+                
+                # Enhanced system prompt for consistent JSON output
+                system_prompt = """You are an expert video content analyzer. You MUST return valid JSON with the exact structure specified.
+
+CRITICAL: Your JSON response MUST include these fields for EACH section/step:
+- "section_order": integer (1, 2, 3, ...)
+- "title": string (descriptive action title)  
+- "content": string (detailed 2-4 sentence explanation, NOT just the title)
+- "timestamp_seconds": number (exact time in seconds)
+- "needs_screenshot": boolean (true if visual element needed)
+
+Example of CORRECT output format:
+{
+  "summary": "Brief summary...",
+  "sections": [
+    {
+      "section_order": 1,
+      "title": "Open Settings Menu",
+      "content": "Navigate to the main settings by clicking the gear icon in the top right corner. This will open the configuration panel.",
+      "timestamp_seconds": 30.5,
+      "needs_screenshot": true
+    }
+  ]
+}
+
+Return ONLY valid JSON, no markdown, no code blocks."""
+                
                 messages = [
-                    {"role": "system", "content": "You are a helpful assistant. Return valid JSON only."},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": final_prompt}
                 ]
             else:
@@ -744,12 +772,86 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
                 
                 if not isinstance(sections_data, list):
                     raise ValueError("'sections/steps' is not a list")
+                
+                # Normalize section fields for compatibility with different models
+                normalized_sections = []
+                for idx, section in enumerate(sections_data):
+                    normalized = {}
                     
-                # Fix timestamps and needs_screenshot
-                for section in data['sections']:
-                    if section.get('timestamp_seconds', 0) > duration:
-                        section['timestamp_seconds'] = max(5.0, duration - 10)
-                    section['needs_screenshot'] = bool(section.get('needs_screenshot', False))
+                    # Normalize section_order (various field names)
+                    normalized['section_order'] = (
+                        section.get('section_order') or 
+                        section.get('step_order') or 
+                        section.get('order') or 
+                        section.get('step_number') or 
+                        section.get('number') or 
+                        idx + 1
+                    )
+                    
+                    # Normalize title
+                    normalized['title'] = (
+                        section.get('title') or 
+                        section.get('name') or 
+                        section.get('heading') or 
+                        section.get('step_title') or 
+                        f"Section {normalized['section_order']}"
+                    )
+                    
+                    # Normalize content/description
+                    normalized['content'] = (
+                        section.get('content') or 
+                        section.get('instruction') or  # Used by database prompt
+                        section.get('description') or 
+                        section.get('text') or 
+                        section.get('body') or 
+                        section.get('step_content') or 
+                        section.get('details') or 
+                        section.get('visual_scene_description') or  # Used by database prompt
+                        normalized['title']  # Fallback to title if no content
+                    )
+                    
+                    # Normalize timestamp
+                    raw_timestamp = (
+                        section.get('timestamp_seconds') or 
+                        section.get('timestamp') or 
+                        section.get('time') or 
+                        section.get('start_time') or 
+                        section.get('time_seconds') or 
+                        0
+                    )
+                    # Handle string timestamps like "1:30" or "01:30:00"
+                    if isinstance(raw_timestamp, str):
+                        parts = raw_timestamp.replace('s', '').split(':')
+                        try:
+                            if len(parts) == 1:
+                                normalized['timestamp_seconds'] = float(parts[0])
+                            elif len(parts) == 2:
+                                normalized['timestamp_seconds'] = int(parts[0]) * 60 + float(parts[1])
+                            elif len(parts) == 3:
+                                normalized['timestamp_seconds'] = int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+                            else:
+                                normalized['timestamp_seconds'] = 0
+                        except:
+                            normalized['timestamp_seconds'] = 0
+                    else:
+                        normalized['timestamp_seconds'] = float(raw_timestamp) if raw_timestamp else 0
+                    
+                    # Clamp timestamp to video duration
+                    if normalized['timestamp_seconds'] > duration:
+                        normalized['timestamp_seconds'] = max(5.0, duration - 10)
+                    
+                    # Normalize needs_screenshot
+                    normalized['needs_screenshot'] = bool(
+                        section.get('needs_screenshot') or 
+                        section.get('screenshot') or 
+                        section.get('has_screenshot') or 
+                        section.get('visual') or 
+                        False
+                    )
+                    
+                    normalized_sections.append(normalized)
+                
+                data['sections'] = normalized_sections
                 
                 print(f"✅ Successfully parsed {len(data['sections'])} sections using {model_name}")
                 return data

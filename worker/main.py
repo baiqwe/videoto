@@ -892,6 +892,10 @@ def process_project(project: Dict):
             'video_duration_seconds': duration
         }).eq('id', project_id).execute()
         
+        # Calculate credits cost based on duration (10 credits per minute, minimum 10)
+        minutes = (duration + 59) // 60  # Round up
+        credits_cost = max(10, int(minutes * 10))
+        
         # Step 2: Analyze content with Gemini (get summary and sections)
         # Pass video_url instead of video_path for Storyboard
         analysis = analyze_content(None, subtitle_path, video_url, duration, generation_mode)

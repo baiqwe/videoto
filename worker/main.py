@@ -3,7 +3,7 @@
 Vidoc Python Worker
 Processes video projects by:
 1. Downloading subtitles from YouTube (NO video download)
-2. Analyzing with Gemini AI using transcript
+2. Analyzing with AI using transcript (via OpenAI-compatible relay platform)
 3. Extracting screenshots from YouTube Storyboard (lightweight)
 4. Uploading to Supabase Storage
 5. Updating project status
@@ -20,12 +20,8 @@ from typing import Dict, List, Optional
 from dotenv import load_dotenv
 
 import yt_dlp
-import google.generativeai as genai
 from supabase import create_client, Client
-import google.api_core.exceptions
 import requests
-import json
-import base64
 
 # Optional imports for fallback methods (not needed for Storyboard)
 try:
@@ -46,32 +42,19 @@ load_dotenv()
 # Configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET") or os.getenv("STORAGE_BUCKET", "guide_images")
 
-# Initialize clients
-# Initialize clients
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# API Configuration (Relay Platform Only)
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# API Configuration
-# IMPORTANT: Use native Google Gemini API for stability
-# Set OPENAI_BASE_URL in .env only if you want to use a third-party aggregator
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", None)  # Changed: removed unstable dmxapi.cn default
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", os.getenv("GEMINI_API_KEY"))
-
-# Determine if using OpenAI-compatible mode (requests) or native Google SDK
-USE_OPENAI_MODE = bool(OPENAI_BASE_URL and OPENAI_API_KEY)
-
-if OPENAI_BASE_URL and "googleapis.com" not in OPENAI_BASE_URL:
-    print(f"🔌 Using Schema-Compatible API at {OPENAI_BASE_URL} (via requests)")
-    USE_NATIVE_GEMINI = False
-elif not USE_OPENAI_MODE:
-    print(f"✨ Using Native Google Gemini API (via google-generativeai SDK)")
-    genai.configure(api_key=GEMINI_API_KEY)
-    USE_NATIVE_GEMINI = True
+if OPENAI_BASE_URL and OPENAI_API_KEY:
+    print(f"🔌 Using Relay Platform API at {OPENAI_BASE_URL}")
 else:
-    # Fallback logic
-    USE_NATIVE_GEMINI = False
+    print("⚠️ Warning: OPENAI_BASE_URL or OPENAI_API_KEY not set")
+
+# Initialize Supabase client
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Create temp directory for processing
 TEMP_DIR = Path(tempfile.gettempdir()) / "vidoc_worker"
@@ -638,154 +621,91 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
     last_exception = None
 
     for model_name in candidate_models:
-        print(f"🔄 Attempting analysis with model: {model_name} (Native: {USE_NATIVE_GEMINI})")
+        print(f"🔄 Attempting analysis with model: {model_name}")
         try:
             response_text = ""
             
-            if USE_NATIVE_GEMINI:
-                # --- GOOGLE NATIVE PATH ---
-                model = genai.GenerativeModel(model_name)
-                if has_transcript:
-                    current_prompt = prompt.replace('{transcript}', transcript_text)
-                    response = model.generate_content(current_prompt)
-                else:
-                    # Video/Audio Upload Path
-                    # Optimization: Try to extract and upload AUDIO only first (much faster)
-                    media_file_to_upload = video_path
-                    mime_type = "video/mp4"
-                    
-                    try:
-                        audio_extract_path = video_path.with_suffix('.m4a')
-                        if not audio_extract_path.exists():
-                            print("   🔊 Extracting audio for faster AI analysis...")
-                            # Extract audio using ffmpeg (fast copy if possible, or re-encode)
-                            # -vn: no video, -acodec copy: copy audio stream (fastest)
-                            (
-                                ffmpeg
-                                .input(str(video_path))
-                                .output(str(audio_extract_path), vn=None, acodec='copy')
-                                .overwrite_output()
-                                .run(quiet=True)
-                            )
-                        
-                        if audio_extract_path.exists():
-                            print(f"   ✅ Audio extracted: {audio_extract_path.name}")
-                            media_file_to_upload = audio_extract_path
-                            mime_type = "audio/mp4"
-                    except Exception as e:
-                        print(f"   ⚠️ Audio extraction failed, falling back to video: {e}")
-                        media_file_to_upload = video_path
-
-                    print(f"   📤 Uploading {mime_type} to Gemini: {media_file_to_upload.name}...")
-                    current_prompt = prompt.replace('{transcript}', "No transcript provided. Analyze this media file to extract the content.")
-                    
-                    uploaded_file = genai.upload_file(path=str(media_file_to_upload), mime_type=mime_type)
-                    
-                    # Wait for processing
-                    while uploaded_file.state.name == "PROCESSING":
-                        print("   ⏳ Specific file processing...", end='\r')
-                        time.sleep(2)
-                        uploaded_file = genai.get_file(uploaded_file.name)
-                    
-                    if uploaded_file.state.name == "FAILED":
-                         raise Exception("Gemini File Processing Failed")
-                         
-                    print(f"   ✅ File ready: {uploaded_file.name}")
-                    response = model.generate_content([current_prompt, uploaded_file])
-                response_text = response.text
-
+            # --- RELAY PLATFORM API (OpenAI-compatible) ---
+            if has_transcript:
+                print("   📄 Using Transcript Mode")
+                final_prompt = prompt.replace('{transcript}', transcript_text)
+                messages = [
+                    {"role": "system", "content": "You are a helpful assistant. Return valid JSON only."},
+                    {"role": "user", "content": final_prompt}
+                ]
             else:
-                # --- OPENAI / AGGREGATOR PATH (via requests) ---
-                messages = []
-                
-                if has_transcript:
-                    print("   📄 Using Transcript Mode (Requests/OpenAI Protocol)")
-                    final_prompt = prompt.replace('{transcript}', transcript_text)
-                    messages = [
-                        {"role": "system", "content": "You are a helpful assistant. Return valid JSON only."},
-                        {"role": "user", "content": final_prompt}
-                    ]
-                else:
-                    # No transcript available - cannot proceed with aggregator
-                    # Storyboard-only mode requires subtitles for AI analysis
-                    raise Exception(
-                        "No subtitles available for this video. "
-                        "Cannot analyze content without transcript in Storyboard-only mode. "
-                        "Please ensure the video has captions/subtitles enabled."
-                    )
+                # No transcript available - cannot proceed
+                raise Exception(
+                    "No subtitles available for this video. "
+                    "Cannot analyze content without transcript. "
+                    "Please ensure the video has captions/subtitles enabled."
+                )
 
-                # Manual Requests Call with Retry Logic
-                headers = {
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": model_name,
-                    "messages": messages,
-                    "response_format": {"type": "json_object"}
-                }
-                
-                print(f"   📡 Sending request to {OPENAI_BASE_URL}/chat/completions...")
-                
-                # Retry logic with exponential backoff
-                max_retries = 3
-                retry_delay = 2
-                last_error = None
-                
-                for attempt in range(max_retries):
-                    try:
-                        response = requests.post(
-                            f"{OPENAI_BASE_URL}/chat/completions",
-                            headers=headers,
-                            json=payload,
-                            timeout=120  # Longer timeout for aggregation
-                        )
-                        
-                        if response.status_code == 200:
-                            # Success!
-                            break
-                        elif response.status_code in [502, 503, 504]:
-                            # Temporary server error - retry
-                            last_error = f"Temporary error {response.status_code}: {response.text[:200]}"
-                            if attempt < max_retries - 1:
-                                wait_time = retry_delay * (2 ** attempt)
-                                print(f"   ⚠️  {last_error}")
-                                print(f"   🔄 Retrying in {wait_time}s... (Attempt {attempt + 2}/{max_retries})")
-                                time.sleep(wait_time)
-                                continue
-                        else:
-                            # Non-retryable error
-                            raise Exception(f"API Error {response.status_code}: {response.text}")
-                    except requests.exceptions.Timeout:
-                        last_error = "Request timeout after 120s"
+            # API Request with Retry Logic
+            headers = {
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": model_name,
+                "messages": messages,
+                "response_format": {"type": "json_object"}
+            }
+            
+            print(f"   📡 Sending request to {OPENAI_BASE_URL}/chat/completions...")
+            
+            # Retry logic with exponential backoff
+            max_retries = 3
+            retry_delay = 2
+            last_error = None
+            
+            for attempt in range(max_retries):
+                try:
+                    response = requests.post(
+                        f"{OPENAI_BASE_URL}/chat/completions",
+                        headers=headers,
+                        json=payload,
+                        timeout=120
+                    )
+                    
+                    if response.status_code == 200:
+                        break
+                    elif response.status_code in [502, 503, 504]:
+                        last_error = f"Temporary error {response.status_code}: {response.text[:200]}"
                         if attempt < max_retries - 1:
                             wait_time = retry_delay * (2 ** attempt)
                             print(f"   ⚠️  {last_error}")
                             print(f"   🔄 Retrying in {wait_time}s... (Attempt {attempt + 2}/{max_retries})")
                             time.sleep(wait_time)
                             continue
-                        else:
-                            raise Exception(last_error)
-                    except requests.exceptions.RequestException as e:
-                        last_error = f"Network error: {str(e)}"
-                        if attempt < max_retries - 1:
-                            wait_time = retry_delay * (2 ** attempt)
-                            print(f"   ⚠️  {last_error}")
-                            print(f"   🔄  Retrying in {wait_time}s... (Attempt {attempt + 2}/{max_retries})")
-                            time.sleep(wait_time)
-                            continue
-                        else:
-                            raise Exception(last_error)
+                    else:
+                        raise Exception(f"API Error {response.status_code}: {response.text}")
+                except requests.exceptions.Timeout:
+                    last_error = "Request timeout after 120s"
+                    if attempt < max_retries - 1:
+                        wait_time = retry_delay * (2 ** attempt)
+                        print(f"   ⚠️  {last_error}")
+                        print(f"   🔄 Retrying in {wait_time}s... (Attempt {attempt + 2}/{max_retries})")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        raise Exception(last_error)
+                except requests.exceptions.RequestException as e:
+                    last_error = f"Network error: {str(e)}"
+                    if attempt < max_retries - 1:
+                        wait_time = retry_delay * (2 ** attempt)
+                        print(f"   ⚠️  {last_error}")
+                        print(f"   🔄 Retrying in {wait_time}s... (Attempt {attempt + 2}/{max_retries})")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        raise Exception(last_error)
+            
+            if response.status_code != 200:
+                raise Exception(f"API failed after {max_retries} attempts: {last_error}")
                 
-                # If all retries failed
-                if response.status_code != 200:
-                    raise Exception(f"API failed after {max_retries} attempts: {last_error}")
-                
-                if response.status_code != 200:
-                    raise Exception(f"API Error {response.status_code}: {response.text}")
-                    
-                resp_json = response.json()
-                response_text = resp_json['choices'][0]['message']['content']
+            resp_json = response.json()
+            response_text = resp_json['choices'][0]['message']['content']
 
             # Parse JSON response with improved error handling
             try:
@@ -1042,8 +962,15 @@ if __name__ == "__main__":
         print("❌ Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
         exit(1)
     
-    if not GEMINI_API_KEY:
-        print("❌ Error: GEMINI_API_KEY must be set")
+    # Check relay platform API configuration
+    if not OPENAI_BASE_URL:
+        print("❌ Error: OPENAI_BASE_URL must be set")
         exit(1)
     
+    if not OPENAI_API_KEY:
+        print("❌ Error: OPENAI_API_KEY must be set")
+        exit(1)
+    
+    print(f"✅ Configuration OK - Using relay platform: {OPENAI_BASE_URL}")
     worker_loop()
+

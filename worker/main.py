@@ -2,9 +2,9 @@
 """
 Vidoc Python Worker
 Processes video projects by:
-1. Downloading videos and subtitles from YouTube
-2. Analyzing with Gemini AI using transcript (preferred) or video (fallback)
-3. Extracting screenshots at key timestamps
+1. Downloading subtitles from YouTube (NO video download)
+2. Analyzing with Gemini AI using transcript
+3. Extracting screenshots from YouTube Storyboard (lightweight)
 4. Uploading to Supabase Storage
 5. Updating project status
 """
@@ -21,15 +21,24 @@ from dotenv import load_dotenv
 
 import yt_dlp
 import google.generativeai as genai
-import ffmpeg
 from supabase import create_client, Client
-import google.api_core.exceptions
 import google.api_core.exceptions
 import requests
 import json
 import base64
-import cv2
-import numpy as np
+
+# Optional imports for fallback methods (not needed for Storyboard)
+try:
+    import cv2
+    import numpy as np
+    import ffmpeg
+    CV2_AVAILABLE = True
+except ImportError:
+    CV2_AVAILABLE = False
+    print("⚠️ cv2/ffmpeg not available - using Storyboard only mode")
+
+# Import Storyboard extractor for lightweight screenshot extraction
+from storyboard_extractor import StoryboardExtractor
 
 # Load environment variables
 load_dotenv()
@@ -44,22 +53,25 @@ STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET") or os.getenv("STORAGE_BUCK
 # Initialize clients
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Determine backend mode
-# If USER provided a Base URL (e.g. for aggregator), we use OpenAI Python Client
-# If NOT, we default to Google Native Client
-# Determine backend mode
-# If USER provided a Base URL (e.g. for aggregator), we use generic Requests
-# If NOT, we default to Google Native Client
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://www.dmxapi.cn/v1")
-USE_OPENAI_MODE = True # Force enabled
+# API Configuration
+# IMPORTANT: Use native Google Gemini API for stability
+# Set OPENAI_BASE_URL in .env only if you want to use a third-party aggregator
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", None)  # Changed: removed unstable dmxapi.cn default
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", os.getenv("GEMINI_API_KEY"))
+
+# Determine if using OpenAI-compatible mode (requests) or native Google SDK
+USE_OPENAI_MODE = bool(OPENAI_BASE_URL and OPENAI_API_KEY)
 
 if OPENAI_BASE_URL and "googleapis.com" not in OPENAI_BASE_URL:
     print(f"🔌 Using Schema-Compatible API at {OPENAI_BASE_URL} (via requests)")
     USE_NATIVE_GEMINI = False
-else:
-    print("🔌 Using Native Google Gemini Client")
+elif not USE_OPENAI_MODE:
+    print(f"✨ Using Native Google Gemini API (via google-generativeai SDK)")
     genai.configure(api_key=GEMINI_API_KEY)
     USE_NATIVE_GEMINI = True
+else:
+    # Fallback logic
+    USE_NATIVE_GEMINI = False
 
 # Create temp directory for processing
 TEMP_DIR = Path(tempfile.gettempdir()) / "vidoc_worker"
@@ -99,156 +111,111 @@ def get_dynamic_prompt(default_prompt: str, prompt_key: str = 'gemini_video_prom
     return default_prompt
 
 
-def download_video(url: str, output_path: Path) -> Dict:
+def get_youtube_cookies_path() -> Optional[str]:
     """
-    Download video and subtitles from YouTube using yt-dlp
+    Get YouTube cookies file path from environment or filesystem.
     
-    Strategy: Try to download subtitles with retry and fallback languages
-    to avoid 429 rate limiting errors.
+    Priority:
+    1. YOUTUBE_COOKIES_B64 (decode to temp file)
+    2. YOUTUBE_COOKIES (write to temp file)
+    3. /data/cookies.txt (Zeabur persistent)
+    4. /app/cookies.txt (container)
+    5. cookies.txt (local development)
     
     Returns:
-        Dict with video info including duration and subtitle path
+        Path to cookies file, or None if not found
     """
-    print(f"📥 Downloading video and subtitles from: {url}")
+    import base64
+    import tempfile
+    
+    # Option 1: Base64 encoded cookies (recommended for production)
+    cookies_b64 = os.getenv("YOUTUBE_COOKIES_B64")
+    if cookies_b64:
+        try:
+            cookies_content = base64.b64decode(cookies_b64).decode('utf-8')
+            temp_file = Path(tempfile.gettempdir()) / "youtube_cookies.txt"
+            temp_file.write_text(cookies_content)
+            print(f"   🍪 Using cookies from YOUTUBE_COOKIES_B64 (decoded to {temp_file})")
+            return str(temp_file)
+        except Exception as e:
+            print(f"   ⚠️ Failed to decode YOUTUBE_COOKIES_B64: {e}")
+    
+    # Option 2: Plain text environment variable
+    cookies_plain = os.getenv("YOUTUBE_COOKIES")
+    if cookies_plain:
+        temp_file = Path(tempfile.gettempdir()) / "youtube_cookies.txt"
+        temp_file.write_text(cookies_plain)
+        print(f"   🍪 Using cookies from YOUTUBE_COOKIES (written to {temp_file})")
+        return str(temp_file)
+    
+    # Option 3-5: File-based cookies (check priority order)
+    cookie_paths = [
+        Path("/data/cookies.txt"),      # Zeabur persistent
+        Path("/app/cookies.txt"),        # Container
+        Path(__file__).parent / "cookies.txt"  # Local development
+    ]
+    
+    for path in cookie_paths:
+        if path.exists() and path.stat().st_size > 0:
+            print(f"   🍪 Using cookies from: {path}")
+            return str(path)
+    
+    print("   ⚠️ No YouTube cookies found (subtitle downloads may fail for restricted content)")
+    return None
+
+
+def download_subtitles_only(url: str, output_path: Path) -> Dict:
+    """
+    Download ONLY subtitles from YouTube using yt-dlp
+    
+    NO VIDEO DOWNLOAD - Storyboard-only mode
+    
+    Returns:
+        Dict with subtitle info and video metadata
+    """
+    print(f"📥 Downloading subtitles from: {url}")
     
     video_id = None
     duration = 0
-    video_path = None
     subtitle_path = None
+    title = ""
     
-    # First, download video only
-    # Inject Proxy if configured
-    proxy_url = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
-    if proxy_url:
-        print(f"   🛡️ Using Proxy: {proxy_url}")
-
-    # First, download video only
-    # Configure yt-dlp options
-    ydl_opts_video = {
-        # Flexible format selection with multiple fallbacks
-        # Priority: 720p h264/mp4 > 720p any > best available
-        'format': (
-            'bestvideo[height<=720][vcodec^=avc]+bestaudio/'  # Try h264 720p first
-            'bestvideo[height<=720]+bestaudio/'               # Any codec 720p
-            'best[height<=720]/'                               # Combined stream 720p
-            'best'                                              # Fallback to best available
-        ),
-        'outtmpl': str(output_path / '%(id)s.%(ext)s'),
-        'quiet': False,
-        'no_warnings': False,
-        'skip_download': False,
-        'nopart': True, # Write directly to output file, avoid rename errors
-        'external_downloader': 'native',
-        
-        # Use Android Client + Additional bypass tokens
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android'],
-                # Optional: Add PO_TOKEN and VISITOR_DATA if available
-                # These can be extracted from browser requests to help bypass bot detection
-            }
-        },
-        # Imitate Android Phone
-        'user_agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-        
-        # Disable cache to prevent read-only filesystem issues
-        'no_cache_dir': True,
+    # Get cookies path once (will be used for all yt-dlp calls)
+    cookies_path = get_youtube_cookies_path()
+    
+    # First, get video metadata (without downloading video)
+    ydl_opts_info = {
+        'skip_download': True,  # CRITICAL: Do not download video!
+        'quiet': True,
+        'no_warnings': True,
     }
+    if cookies_path:
+        ydl_opts_info['cookiefile'] = cookies_path
     
-    if proxy_url:
-        ydl_opts_video['proxy'] = proxy_url
-
-    # === COOKIE AUTHENTICATION (REQUIRED FOR YOUTUBE) ===
-    # YouTube now requires cookies to bypass bot detection
-    # We support multiple sources in priority order:
-    
-    cookies_configured = False
-    
-    # Priority 1: Environment variable (recommended for production)
-    # Support both plain text and base64 encoded cookies
-    cookies_env = os.getenv('YOUTUBE_COOKIES')
-    cookies_b64 = os.getenv('YOUTUBE_COOKIES_B64')  # Base64 encoded version
-    
-    if cookies_b64:
-        # Decode from base64 (avoids newline issues in env vars)
-        try:
-            import base64
-            cookies_content = base64.b64decode(cookies_b64).decode('utf-8')
-            cookies_file = Path('/tmp/youtube_cookies.txt')
-            cookies_file.write_text(cookies_content)
-            ydl_opts_video['cookiefile'] = str(cookies_file)
-            print(f"   🍪 Using cookies from YOUTUBE_COOKIES_B64 environment variable")
-            cookies_configured = True
-        except Exception as e:
-            print(f"   ⚠️  Failed to decode base64 cookies: {e}")
-    
-    elif cookies_env:
-        cookies_file = Path('/tmp/youtube_cookies.txt')
-        try:
-            # Fix potential newline issues in environment variables
-            # Replace literal \n with actual newlines
-            cookies_content = cookies_env.replace('\\n', '\n')
-            cookies_file.write_text(cookies_content)
-            ydl_opts_video['cookiefile'] = str(cookies_file)
-            print(f"   🍪 Using cookies from YOUTUBE_COOKIES environment variable")
-            print(f"   📋 Cookie file size: {len(cookies_content)} chars")
-            cookies_configured = True
-        except Exception as e:
-            print(f"   ⚠️  Failed to write cookies from env: {e}")
-    
-    # Priority 2: Check common mount paths (Zeabur persistent storage, etc.)
-    if not cookies_configured:
-        cookie_paths = [
-            Path('/data/cookies.txt'),          # Zeabur persistent storage
-            Path('/app/data/cookies.txt'),      # Alternative mount point
-            Path('/mnt/cookies.txt'),           # Generic mount point
-            Path('/app/cookies.txt'),           # Current directory in container
-            Path('cookies.txt'),                # Local development
-        ]
-        
-        for cookie_path in cookie_paths:
-            if cookie_path.exists():
-                # CRITICAL FIX: Copy to /tmp to avoid read-only filesystem errors
-                # yt-dlp may try to UPDATE cookies, which fails on read-only /app
-                temp_cookies = Path('/tmp/youtube_cookies_from_file.txt')
-                try:
-                    import shutil
-                    shutil.copy(str(cookie_path), str(temp_cookies))
-                    ydl_opts_video['cookiefile'] = str(temp_cookies)
-                    print(f"   🍪 Using cookies from: {cookie_path} (copied to {temp_cookies})")
-                    cookies_configured = True
-                    break
-                except Exception as e:
-                    print(f"   ⚠️  Failed to copy cookies from {cookie_path}: {e}")
-                    continue
-    
-    # Warning if no cookies found
-    if not cookies_configured:
-        print("   ❌ ERROR: No cookies found! YouTube will block requests.")
-        print("   💡 Solutions:")
-        print("      1. Set YOUTUBE_COOKIES environment variable, OR")
-        print("      2. Mount cookies.txt to /data/cookies.txt, OR")
-        print("      3. Place cookies.txt in worker/ directory")
-        print("   📖 See worker/COOKIES_SETUP_GUIDE.md for details")
-    
-    with yt_dlp.YoutubeDL(ydl_opts_video) as ydl:
-        info = ydl.extract_info(url, download=True)
+    with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
+        info = ydl.extract_info(url, download=False)
         video_id = info.get('id')
         duration = info.get('duration', 0)
-        
-        # Find the downloaded video file
-        for ext in ['mp4', 'webm', 'mkv']:
-            potential_file = output_path / f"{video_id}.{ext}"
-            if potential_file.exists():
-                video_path = potential_file
-                break
-        
-        if not video_path:
-            raise Exception(f"Video not found for {video_id}")
+        title = info.get('title', '')
     
-    # Then, try to download subtitles separately (with retry and fallback)
-    # Priority: English first (most common), then try others if needed
-    subtitle_languages = ['en', 'en-US', 'en-GB']  # Start with English variants
+    if not video_id:
+        raise Exception("Could not extract video ID")
+    
+    print(f"   Video ID: {video_id}")
+    print(f"   Duration: {format_time(duration)}")
+    print(f"   Title: {title[:50]}..." if len(title) > 50 else f"   Title: {title}")
+    
+    # Download subtitles (with retry and fallback)
+    # Priority: Chinese first (for Chinese videos), then English
+    subtitle_languages = [
+        'zh-Hans',  # Simplified Chinese
+        'zh-CN',    # China
+        'zh-TW',    # Taiwan
+        'zh',       # Generic Chinese
+        'en',       # English
+        'en-US',    # US English
+        'en-GB',    # UK English
+    ]
     
     for lang in subtitle_languages:
         try:
@@ -256,14 +223,14 @@ def download_video(url: str, output_path: Path) -> Dict:
             ydl_opts_subs = {
                 'writesubtitles': True,
                 'writeautomaticsub': True,
-                'subtitleslangs': [lang],  # Only one language at a time
-                'skip_download': True,  # Don't re-download video
+                'subtitleslangs': [lang],
+                'skip_download': True,  # Don't download video
+                'outtmpl': str(output_path / '%(id)s'),
                 'quiet': True,
                 'no_warnings': True,
             }
-            
-            if proxy_url:
-                ydl_opts_subs['proxy'] = proxy_url
+            if cookies_path:
+                ydl_opts_subs['cookiefile'] = cookies_path
             
             with yt_dlp.YoutubeDL(ydl_opts_subs) as ydl:
                 ydl.download([url])
@@ -271,55 +238,61 @@ def download_video(url: str, output_path: Path) -> Dict:
             # Check if subtitle was downloaded
             for file in output_path.glob(f"{video_id}.{lang}*.vtt"):
                 subtitle_path = file
-                print(f"✅ Found subtitle: {file.name}")
+                print(f"   ✅ Found subtitle: {file.name}")
                 break
             
             if subtitle_path:
                 break
                 
         except Exception as e:
-            if '429' in str(e) or 'Too Many Requests' in str(e):
-                print(f"   ⚠️  Rate limited for {lang}, waiting 2 seconds...")
-                time.sleep(2)
-                continue
-            else:
-                print(f"   ⚠️  Failed to download {lang} subtitles: {e}")
+            print(f"   ⚠️  Failed to download {lang} subtitles: {e}")
+            continue
+    
+    # If no manual subtitles, try auto-generated (try multiple languages)
+    if not subtitle_path:
+        print("   ⚠️ No manual subtitles found, trying auto-generated...")
+        auto_langs = ['zh-Hans', 'zh', 'en']  # Priority languages for auto-generated
+        
+        for auto_lang in auto_langs:
+            try:
+                print(f"   Trying auto-generated {auto_lang} subtitles...")
+                ydl_opts_auto = {
+                    'writeautomaticsub': True,
+                    'subtitleslangs': [auto_lang],
+                    'skip_download': True,
+                    'outtmpl': str(output_path / '%(id)s'),
+                    'quiet': True,
+                    'no_warnings': True,
+                }
+                if cookies_path:
+                    ydl_opts_auto['cookiefile'] = cookies_path
+                
+                with yt_dlp.YoutubeDL(ydl_opts_auto) as ydl:
+                    ydl.download([url])
+                
+                # Check for any .vtt file
+                for file in output_path.glob(f"{video_id}.*.vtt"):
+                    subtitle_path = file
+                    print(f"   ✅ Found auto-generated subtitle: {file.name}")
+                    break
+                
+                if subtitle_path:
+                    break
+                    
+            except Exception as e:
+                print(f"   ⚠️ Auto-generated {auto_lang} subtitle failed: {e}")
                 continue
     
-    # If still no subtitle, try auto-generated (usually more available)
     if not subtitle_path:
-        try:
-            print("   Trying auto-generated subtitles...")
-            ydl_opts_auto = {
-                'writeautomaticsub': True,
-                'subtitleslangs': ['en'],  # Auto-generated are usually in video's primary language
-                'skip_download': True,
-                'quiet': True,
-                'no_warnings': True,
-            }
-            
-            if proxy_url:
-                ydl_opts_auto['proxy'] = proxy_url
-            
-            with yt_dlp.YoutubeDL(ydl_opts_auto) as ydl:
-                ydl.download([url])
-            
-            # Check for any .vtt file
-            for file in output_path.glob(f"{video_id}.*.vtt"):
-                subtitle_path = file
-                print(f"✅ Found auto-generated subtitle: {file.name}")
-                break
-        except Exception as e:
-            print(f"   ⚠️  Auto-generated subtitle download failed: {e}")
-    
-    if not subtitle_path:
-        print("⚠️  No subtitle file found. Will use video analysis instead (slower but works).")
+        raise Exception(
+            "No subtitles available for this video. "
+            "Storyboard-only mode requires subtitles/captions."
+        )
             
     return {
-        'file_path': video_path,
         'subtitle_path': subtitle_path,
         'duration': duration,
-        'title': info.get('title', ''),
+        'title': title,
         'video_id': video_id,
     }
 
@@ -362,69 +335,9 @@ def parse_vtt_to_text(vtt_path: Optional[Path]) -> str:
         return ""
 
 
-def extract_smart_screenshot(video_path: Path, timestamp: float, output_dir: Path) -> str:
-    """
-    Extract the 'best' (sharpest) screenshot around the timestamp.
-    Scans t-0.5s, t, t+0.5s
-    """
-    if timestamp < 0:
-        timestamp = 0
-        
-    output_filename = f"{video_path.stem}_{int(timestamp * 1000)}.jpg"
-    output_path = output_dir / output_filename
-    
-    # If already exists, return
-    if output_path.exists():
-        return str(output_path)
-        
-    print(f"📸 Smart extracting around {timestamp:.2f}s...")
-    
-    cap = cv2.VideoCapture(str(video_path))
-    if not cap.isOpened():
-        print(f"❌ Failed to open video file in cv2: {video_path}")
-        raise Exception(f"Failed to open video file: {video_path}")
-    
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    target_frame = int(timestamp * fps)
-    
-    candidates = []
-    
-    # Check 3 positions: -0.5s, current, +0.5s
-    offsets = [-int(fps*0.5), 0, int(fps*0.5)]
-    
-    for offset in offsets:
-        f_idx = max(0, target_frame + offset)
-        cap.set(cv2.CAP_PROP_POS_FRAMES, f_idx)
-        ret, frame = cap.read()
-        if ret:
-            # Calculate sharpness using Laplacian variance
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            score = cv2.Laplacian(gray, cv2.CV_64F).var()
-            candidates.append((score, frame))
-        else:
-            print(f"⚠️ Could not read frame at offset {offset}")
-            
-    cap.release()
-    
-    if not candidates:
-        raise Exception(f"Could not extract any frames around {timestamp}")
-        
-    # Sort by score (descending) -> best sharpness first
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    best_score, best_frame = candidates[0]
-    
-    print(f"   ✨ Selected frame with sharpness score: {best_score:.1f}")
-    
-    # Resize if too large (save bandwidth/storage)
-    height, width = best_frame.shape[:2]
-    max_dim = 1280
-    if width > max_dim or height > max_dim:
-        scale = max_dim / max(width, height)
-        best_frame = cv2.resize(best_frame, None, fx=scale, fy=scale)
-    
-    cv2.imwrite(str(output_path), best_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
-    
-    return str(output_path)
+# REMOVED: extract_smart_screenshot() - no longer needed in Storyboard-only mode
+# This function required cv2/OpenCV which we've eliminated
+# All screenshots now use StoryboardExtractor instead
 
 def transcribe_with_whisper(audio_path: Path) -> str:
     """Fallback: Transcribe audio using Whisper API"""
@@ -793,28 +706,13 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
                         {"role": "user", "content": final_prompt}
                     ]
                 else:
-                    # Vision Fallback for Aggregator
-                    print("   🖼️  No transcript. Using Vision Mode (Screenshots) for Aggregator...")
-                    frames = []
-                    for t in [duration*0.2, duration*0.5, duration*0.8]:
-                        f_path = extract_smart_screenshot(video_path, t, video_path.parent) # Use Smart Screenshot
-                        with open(f_path, "rb") as image_file:
-                            b64 = base64.b64encode(image_file.read()).decode('utf-8')
-                            frames.append(b64)
-                    
-                    final_prompt = prompt.replace('{transcript}', "No transcript. Analyze these 3 key frames from the video.")
-                    
-                    content_payload = [{"type": "text", "text": final_prompt}]
-                    for b64_img in frames:
-                        content_payload.append({
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{b64_img}"}
-                        })
-                    
-                    messages = [
-                        {"role": "system", "content": "Return valid JSON."},
-                        {"role": "user", "content": content_payload}
-                    ]
+                    # No transcript available - cannot proceed with aggregator
+                    # Storyboard-only mode requires subtitles for AI analysis
+                    raise Exception(
+                        "No subtitles available for this video. "
+                        "Cannot analyze content without transcript in Storyboard-only mode. "
+                        "Please ensure the video has captions/subtitles enabled."
+                    )
 
                 # Manual Requests Call with Retry Logic
                 headers = {
@@ -889,17 +787,43 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
                 resp_json = response.json()
                 response_text = resp_json['choices'][0]['message']['content']
 
-            # Parse JSON response common logic
+            # Parse JSON response with improved error handling
             try:
                 text = response_text.strip()
+                
+                # Method 1: Remove markdown code blocks (```json...``` or ```...```)
                 if '```json' in text:
                     text = text.split('```json')[1].split('```')[0].strip()
                 elif '```' in text:
                     text = text.split('```')[1].split('```')[0].strip()
                 
+                # Method 2: Try regex to extract JSON object (handles extra text before/after)
+                import re
+                if not text.startswith('{'):
+                    json_match = re.search(r'(\{.*\})', text, re.DOTALL)
+                    if json_match:
+                        text = json_match.group(1)
+                        print("   📝 Extracted JSON using regex (had extra text)")
+                
+                # Method 3: Parse JSON
                 data = json.loads(text)
-                if not isinstance(data, dict) or 'sections' not in data:
-                    raise ValueError("Response structure invalid")
+                
+                # Validate structure
+                if not isinstance(data, dict):
+                    raise ValueError("Response is not a dictionary")
+                
+                # Check for 'sections' or 'steps' (some models use different field names)
+                if 'sections' in data:
+                    sections_data = data['sections']
+                elif 'steps' in data:
+                    sections_data = data['steps']
+                    print("   📝 Using 'steps' field (renamed from 'sections')")
+                    data['sections'] = sections_data  # Normalize to 'sections'
+                else:
+                    raise ValueError("Response missing both 'sections' and 'steps' fields")
+                
+                if not isinstance(sections_data, list):
+                    raise ValueError("'sections/steps' is not a list")
                     
                 # Fix timestamps and needs_screenshot
                 for section in data['sections']:
@@ -911,8 +835,15 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
                 return data
 
             except json.JSONDecodeError as e:
-                print(f"❌ JSON Error: {e}")
-                raise e
+                # Enhanced error message with response preview
+                preview = response_text[:500] if len(response_text) > 500 else response_text
+                print(f"❌ JSON Decode Error: {e}")
+                print(f"   Response preview: {preview}...")
+                raise Exception(f"Failed to parse AI response as JSON. Error: {e}")
+            except ValueError as e:
+                print(f"❌ JSON Structure Error: {e}")
+                print(f"   Parsed data keys: {data.keys() if isinstance(data, dict) else 'not a dict'}")
+                raise Exception(f"AI response has invalid structure: {e}")
 
         except Exception as e:
             print(f"⚠️  Model {model_name} failed: {e}")
@@ -949,13 +880,10 @@ def process_project(project: Dict):
             shutil.rmtree(project_dir)
         project_dir.mkdir(exist_ok=True)
         
-        # Step 1: Download video and subtitles
-        # Note: Cobalt API was considered but shutdown on Nov 11, 2024
-        # Using yt-dlp with robust format selection and cookie support
-        print("📥 Downloading video using yt-dlp...")
-        video_info = download_video(video_url, project_dir)
+        # Step 1: Download subtitles ONLY (no video download!)
+        print("📥 Downloading subtitles using yt-dlp...")
+        video_info = download_subtitles_only(video_url, project_dir)
         
-        video_path = video_info['file_path']
         subtitle_path = video_info.get('subtitle_path')
         duration = video_info['duration']
         
@@ -964,12 +892,9 @@ def process_project(project: Dict):
             'video_duration_seconds': duration
         }).eq('id', project_id).execute()
         
-        # Recalculate credits cost based on duration
-        minutes = (duration + 59) // 60  # Round up
-        credits_cost = max(10, minutes * 10)
-        
         # Step 2: Analyze content with Gemini (get summary and sections)
-        analysis = analyze_content(video_path, subtitle_path, video_url, duration, generation_mode)
+        # Pass video_url instead of video_path for Storyboard
+        analysis = analyze_content(None, subtitle_path, video_url, duration, generation_mode)
         
         if not analysis or 'sections' not in analysis:
             raise Exception("No analysis extracted from video")
@@ -1003,22 +928,19 @@ def process_project(project: Dict):
             if generation_mode == 'text_with_images' and needs_screenshot:
                 screenshot_path = None
                 
-                # --- Attempt 1: OpenCV Smart Screenshot (Sharpness Priority) ---
+                # Extract screenshot using YouTube Storyboard (no video download needed!)
                 try:
-                    screenshot_path = extract_smart_screenshot(video_path, timestamp, project_dir)
-                    print(f"   📸 Smart Screenshot (OpenCV) captured for section {section_order}")
-                except Exception as e_cv:
-                    print(f"   ⚠️ OpenCV extraction failed: {e_cv}")
+                    screenshot_filename = f"{video_info['video_id']}_{int(timestamp * 1000)}.jpg"
+                    screenshot_path_obj = project_dir / screenshot_filename
                     
-                    # --- Attempt 2: FFmpeg Fallback (Reliability Priority) ---
-                    try:
-                        print(f"   🔄 Falling back to FFmpeg for section {section_order}...")
-                        # extract_screenshot returns Path, convert to str for consistency
-                        screenshot_path = str(extract_screenshot(video_path, timestamp, project_dir))
-                        print(f"   📸 FFmpeg Screenshot captured for section {section_order}")
-                    except Exception as e_ffmpeg:
-                        print(f"   ❌ All screenshot methods failed: {e_ffmpeg}")
-                        screenshot_path = None
+                    extractor = StoryboardExtractor(video_url)
+                    extractor.get_thumbnail_at_timestamp(timestamp, screenshot_path_obj)
+                    screenshot_path = str(screenshot_path_obj)
+                    
+                    print(f"   📸 Storyboard Screenshot captured for section {section_order}")
+                except Exception as e:
+                    print(f"   ❌ Storyboard extraction failed: {e}")
+                    screenshot_path = None
 
                 # Upload if we have a valid screenshot
                 if screenshot_path:

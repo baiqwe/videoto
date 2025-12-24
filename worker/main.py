@@ -612,7 +612,9 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
     # Model priority: gpt-4o-mini first (faster, reliable), then gpt-4o, then gemini as fallback
     # Gemini models may be unavailable on some relay platforms
     candidate_models = [
-        'gpt-4o-mini',      # Force using this model for debugging
+        'gpt-4o',           # Primary: High quality, reliable
+        'gpt-4o-mini',      # Secondary: Faster, cheaper (but sometimes flaky on Relay)
+        'gpt-3.5-turbo',    # Fallback: widely supported
     ]
     
     last_exception = None

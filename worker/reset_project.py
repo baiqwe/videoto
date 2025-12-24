@@ -15,7 +15,10 @@ response = supabase.table('projects').select('*').order('created_at', desc=True)
 if response.data:
     project_id = response.data[0]['id']
     print(f"🔄 Resetting project {project_id} to PENDING...")
-    supabase.table('projects').update({'status': 'pending'}).eq('id', project_id).execute()
+    supabase.table('projects').update({
+        'status': 'pending',
+        'error_message': None
+    }).eq('id', project_id).execute()
     
     # Delete existing steps to avoid duplicates (logic in main.py usually handles overwrites but cleaner to wipe)
     supabase.table('steps').delete().eq('project_id', project_id).execute()

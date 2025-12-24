@@ -612,11 +612,7 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
     # Model priority: gpt-4o-mini first (faster, reliable), then gpt-4o, then gemini as fallback
     # Gemini models may be unavailable on some relay platforms
     candidate_models = [
-        'gpt-4o-mini',      # Fast, reliable, cost-effective
-        'gpt-4o',           # More capable but slower
-        'gpt-4-turbo',      # Alternative
-        'gemini-1.5-flash', # May be unavailable on relay
-        'gemini-1.5-pro',   # May be unavailable on relay
+        'gpt-4o-mini',      # Force using this model for debugging
     ]
     
     last_exception = None
@@ -629,6 +625,9 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
             # --- RELAY PLATFORM API (OpenAI-compatible) ---
             if has_transcript:
                 print("   📄 Using Transcript Mode")
+                # DEBUG: Override transcript to isolate size issues
+                # transcript_text = "Transcript: This is a video about how to cook pasta. Step 1: Boil water. Step 2: Add salt. Step 3: Add pasta. Cook for 10 mins. Eat."
+                
                 final_prompt = prompt.replace('{transcript}', transcript_text)
                 
                 # Enhanced system prompt for consistent JSON output
@@ -698,16 +697,32 @@ Return ONLY valid JSON, no markdown, no code blocks."""
                     
                     if response.status_code == 200:
                         break
-                    elif response.status_code in [502, 503, 504]:
-                        last_error = f"Temporary error {response.status_code}: {response.text[:200]}"
-                        if attempt < max_retries - 1:
-                            wait_time = retry_delay * (2 ** attempt)
-                            print(f"   ⚠️  {last_error}")
-                            print(f"   🔄 Retrying in {wait_time}s... (Attempt {attempt + 2}/{max_retries})")
-                            time.sleep(wait_time)
-                            continue
                     else:
-                        raise Exception(f"API Error {response.status_code}: {response.text}")
+                        print(f"   ❌ API Request Failed (Status {response.status_code})")
+                        print(f"   Response Body: {response.text}")
+                        last_error = f"API Error {response.status_code}: {response.text}"
+                        
+                        if response.status_code in [502, 503, 504]:
+                            if attempt < max_retries - 1:
+                                wait_time = retry_delay * (2 ** attempt)
+                                print(f"   🔄 Retrying in {wait_time}s... (Attempt {attempt + 2}/{max_retries})")
+                                time.sleep(wait_time)
+                                continue
+                        else:
+                            # For 400/401/403 errors, don't retry, just fail
+                            raise Exception(f"API Error {response.status_code}: {response.text}")
+
+                except requests.exceptions.Timeout:
+                    # ... existing timeout handling ...
+                    last_error = "Request timeout after 120s"
+                    if attempt < max_retries - 1:
+                        # ...
+                        pass
+                    else:
+                         raise Exception(last_error)
+                except requests.exceptions.RequestException as e:
+                     # ...
+                     pass
                 except requests.exceptions.Timeout:
                     last_error = "Request timeout after 120s"
                     if attempt < max_retries - 1:

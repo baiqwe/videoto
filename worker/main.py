@@ -625,30 +625,32 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
             # --- RELAY PLATFORM API (OpenAI-compatible) ---
             if has_transcript:
                 print("   📄 Using Transcript Mode")
-                # DEBUG: Override transcript to isolate size issues
-                # transcript_text = "Transcript: This is a video about how to cook pasta. Step 1: Boil water. Step 2: Add salt. Step 3: Add pasta. Cook for 10 mins. Eat."
                 
                 final_prompt = prompt.replace('{transcript}', transcript_text)
                 
                 # Enhanced system prompt for consistent JSON output
                 system_prompt = """You are an expert video content analyzer. You MUST return valid JSON with the exact structure specified.
 
-CRITICAL: Your JSON response MUST include these fields for EACH section/step:
-- "section_order": integer (1, 2, 3, ...)
-- "title": string (descriptive action title)  
-- "content": string (detailed 2-4 sentence explanation, NOT just the title)
-- "timestamp_seconds": number (exact time in seconds)
-- "needs_screenshot": boolean (true if visual element needed)
+CRITICAL INSTRUCTIONS:
+1. STRICTLY base your response ON THE TRANSCRIPT provided. Do NOT hallucinate content.
+2. If the video is about cooking, acceptable steps are "Chopping onions", "Boiling water", etc.
+3. If the video is about coding, acceptable steps are "Install library", "Run command", etc.
+4. Your JSON response MUST include these fields for EACH section/step:
+   - "section_order": integer (1, 2, 3, ...)
+   - "title": string (descriptive action title)  
+   - "content": string (detailed 2-4 sentence explanation, NOT just the title)
+   - "timestamp_seconds": number (exact time in seconds)
+   - "needs_screenshot": boolean (true if visual element is described)
 
 Example of CORRECT output format:
 {
-  "summary": "Brief summary...",
+  "summary": "This video explains...",
   "sections": [
     {
       "section_order": 1,
-      "title": "Open Settings Menu",
-      "content": "Navigate to the main settings by clicking the gear icon in the top right corner. This will open the configuration panel.",
-      "timestamp_seconds": 30.5,
+      "title": "First Step Title",
+      "content": "Description of the first step based on the video content.",
+      "timestamp_seconds": 10.5,
       "needs_screenshot": true
     }
   ]

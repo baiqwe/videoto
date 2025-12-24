@@ -167,16 +167,46 @@ def download_subtitles_only(url: str, output_path: Path) -> Dict:
     cookies_path = get_youtube_cookies_path()
     
     # First, get video metadata (without downloading video)
-    ydl_opts_info = {
-        'skip_download': True,  # CRITICAL: Do not download video!
-        'quiet': True,
-        'no_warnings': True,
-    }
-    if cookies_path:
-        ydl_opts_info['cookiefile'] = cookies_path
+    # Retry logic: Try with cookies first, then without cookies if failed
     
-    with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
-        info = ydl.extract_info(url, download=False)
+    info = None
+    metadata_error = None
+    
+    # Attempt 1: With cookies (if available)
+    if cookies_path:
+        print(f"   ℹ️ Attempting metadata extraction WITH cookies...")
+        ydl_opts_info = {
+            'skip_download': True,
+            'quiet': True,
+            'no_warnings': True,
+            'cookiefile': cookies_path
+        }
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
+                info = ydl.extract_info(url, download=False)
+                print("   ✅ Metadata extracted successfully with cookies")
+        except Exception as e:
+            print(f"   ⚠️ Metadata extraction with cookies failed: {e}")
+            metadata_error = e
+
+    # Attempt 2: Without cookies (if attempt 1 failed or no cookies)
+    if not info:
+        print(f"   ℹ️ Attempting metadata extraction WITHOUT cookies...")
+        ydl_opts_info_no_cookies = {
+            'skip_download': True,
+            'quiet': True,
+            'no_warnings': True,
+        }
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts_info_no_cookies) as ydl:
+                info = ydl.extract_info(url, download=False)
+                print("   ✅ Metadata extracted successfully WITHOUT cookies")
+        except Exception as e:
+            print(f"   ❌ Metadata extraction failed without cookies: {e}")
+            # If both failed, raise the last error
+            raise metadata_error or e
+
+    if info:
         video_id = info.get('id')
         duration = info.get('duration', 0)
         title = info.get('title', '')
@@ -267,10 +297,9 @@ def download_subtitles_only(url: str, output_path: Path) -> Dict:
                 continue
     
     if not subtitle_path:
-        raise Exception(
-            "No subtitles available for this video. "
-            "Storyboard-only mode requires subtitles/captions."
-        )
+        print("   ⚠️ No subtitles found. Proceeding to Vision Mode fallback.")
+        # Do NOT raise exception - return metadata only so we can fallback to Vision Mode
+        pass
             
     return {
         'subtitle_path': subtitle_path,
@@ -288,6 +317,7 @@ def parse_vtt_to_text(vtt_path: Optional[Path]) -> str:
         Cleaned transcript text (limited to 25000 chars to avoid token limits)
     """
     if not vtt_path or not vtt_path.exists():
+        return ""
         print("⚠️  No subtitle file to parse.")
         return ""
     
@@ -609,32 +639,28 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
 
     # --- REFACTORED GENERATION LOGIC ---
 
-    # Model priority: gpt-4o-mini first (faster, reliable), then gpt-4o, then gemini as fallback
-    # Gemini models may be unavailable on some relay platforms
+    # Model priority: Qwen3-VL (Thinking) for robust multimodal, then gpt-4o as solid fallback
     candidate_models = [
-        'gpt-4o',           # Primary: High quality, reliable
-        'gpt-4o-mini',      # Secondary: Faster, cheaper (but sometimes flaky on Relay)
-        'gpt-3.5-turbo',    # Fallback: widely supported
+        'Qwen3-VL-235B-A22B-Thinking',  # DMXAPI Recommended: Strong Vision + Text
+        'gpt-4o',                       # Primary Fallback: High quality, reliable
+        'gpt-4o-mini',                  # Secondary Fallback: Faster, cheaper
     ]
     
     last_exception = None
 
-    for model_name in candidate_models:
-        print(f"🔄 Attempting analysis with model: {model_name}")
-        try:
-            response_text = ""
-            
-            # --- RELAY PLATFORM API (OpenAI-compatible) ---
-            if has_transcript:
-                print("   📄 Using Transcript Mode")
-                
-                final_prompt = prompt.replace('{transcript}', transcript_text)
-                
-                # Enhanced system prompt for consistent JSON output
-                system_prompt = """You are an expert video content analyzer. You MUST return valid JSON with the exact structure specified.
+    # 1. Determine Analysis Mode
+    use_vision_mode = False
+    if transcript_text and len(transcript_text.strip()) > 0:
+        print(f"✅ Found transcript ({len(transcript_text)} chars). Using Text Analysis Mode.")
+    else:
+        print("⚠️ No transcript found. Switching to Vision/Video Analysis Mode.")
+        use_vision_mode = True
+
+    # 2. Define System Prompt (Global for both modes)
+    system_prompt = """You are an expert video content analyzer. You MUST return valid JSON with the exact structure specified.
 
 CRITICAL INSTRUCTIONS:
-1. STRICTLY base your response ON THE TRANSCRIPT provided. Do NOT hallucinate content.
+1. STRICTLY base your response ON THE CONTENT provided (Transcript or Video). Do NOT hallucinate.
 2. If the video is about cooking, acceptable steps are "Chopping onions", "Boiling water", etc.
 3. If the video is about coding, acceptable steps are "Install library", "Run command", etc.
 4. Your JSON response MUST include these fields for EACH section/step:
@@ -659,28 +685,61 @@ Example of CORRECT output format:
 }
 
 Return ONLY valid JSON, no markdown, no code blocks."""
+
+    for model_name in candidate_models:
+        print(f"🔄 Attempting analysis with model: {model_name}")
+        try:
+            response_text = ""
+            messages = []
+            
+            # 3. Construct Payload based on Mode
+            if use_vision_mode:
+                # === VISION MODE (Video URL) ===
+                print(f"   🎥 Constructing Video Payload for {model_name}")
+                
+                # Adapt prompt for vision
+                vision_prompt = prompt.replace('{transcript}', 
+                    '(Transcripts are unavailable. Please analyze the video content directly from the visual stream and audio.)')
+                
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": vision_prompt
+                            },
+                            {
+                                "type": "video_url",
+                                "video_url": {
+                                    "url": video_url
+                                }
+                            }
+                        ]
+                    }
+                ]
+            else:
+                # === TEXT MODE (Transcript) ===
+                print(f"   📄 Constructing Text Payload for {model_name}")
+                final_prompt = prompt.replace('{transcript}', transcript_text)
                 
                 messages = [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": final_prompt}
                 ]
-            else:
-                # No transcript available - cannot proceed
-                raise Exception(
-                    "No subtitles available for this video. "
-                    "Cannot analyze content without transcript. "
-                    "Please ensure the video has captions/subtitles enabled."
-                )
 
             # API Request with Retry Logic
             headers = {
                 "Authorization": f"Bearer {OPENAI_API_KEY}",
                 "Content-Type": "application/json"
             }
+            
+            # Remove response_format logic to ensure Qwen compatibility
             payload = {
                 "model": model_name,
                 "messages": messages,
-                "response_format": {"type": "json_object"}
+                "temperature": 0.7,
             }
             
             print(f"   📡 Sending request to {OPENAI_BASE_URL}/chat/completions...")
@@ -792,6 +851,11 @@ Return ONLY valid JSON, no markdown, no code blocks."""
                 if not isinstance(sections_data, list):
                     raise ValueError("'sections/steps' is not a list")
                 
+                if len(sections_data) == 0:
+                     print(f"   ⚠️  Model {model_name} returned 0 sections. Treating as failure.")
+                     print(f"   Response Preview: {response_text[:1000]}")
+                     raise ValueError("Model returned 0 sections")
+
                 # Normalize section fields for compatibility with different models
                 normalized_sections = []
                 for idx, section in enumerate(sections_data):

@@ -505,9 +505,10 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
     transcript_text = parse_vtt_to_text(subtitle_path)
     
     # 2. Whisper Fallback
-    if not transcript_text:
+    if not transcript_text and video_path:
         print("⚠️ No VTT subtitles found. Attempting Whisper transcription...")
         # Find audio file (usually same name as video but m4a)
+        # Note: In Storyboard mode, video_path is None, so we skip Whisper and go to Vision Mode
         audio_candidates = list(video_path.parent.glob(f"{video_path.stem}*.m4a"))
         if not audio_candidates:
              # Try extracting audio if not found? 

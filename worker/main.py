@@ -1116,6 +1116,7 @@ def process_project(project: Dict):
 def worker_loop():
     """Main worker loop - polls for pending projects"""
     print("🚀 Vidoc Worker Started (Subtitle Enhanced Mode)")
+    print("🚀 Vidoc Worker - Version: REMOVED_GOOGLE_CLIENT")
     print(f"   Supabase URL: {SUPABASE_URL}")
     print(f"   Storage Bucket: {STORAGE_BUCKET}")
     print(f"   Temp Directory: {TEMP_DIR}")

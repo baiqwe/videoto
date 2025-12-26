@@ -13,10 +13,10 @@ const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.stepsnip.com";
 export const metadata = {
   metadataBase: new URL(baseUrl),
   title: {
-    default: "StepSnip - Turn YouTube Videos into Articles & Guides with AI",
+    default: "Free YouTube to Text Converter & Guide Generator | StepSnip",
     template: "%s | StepSnip"
   },
-  description: "Stop pausing and typing. StepSnip automatically converts YouTube videos into structured articles, step-by-step guides, and blog posts with screenshots. Turn watch time into read time.",
+  description: "Convert YouTube videos to text, transcripts, and visual guides with AI. Free tool to turn tutorials into blog posts, documentation, and step-by-step articles with screenshots.",
   keywords: [
     "video to text",
     "YouTube to article",

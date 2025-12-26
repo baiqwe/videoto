@@ -7,6 +7,10 @@ import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import VideoInputForm from "@/components/video-input-form";
 import { ExampleShowcase } from "@/components/landing/example-showcase";
+import { UseCases } from "@/components/landing/use-cases";
+import { LatestGuides } from "@/components/landing/latest-guides";
+import { FAQSection } from "@/components/landing/faq-section";
+import { ProblemSolution } from "@/components/landing/problem-solution";
 import { CheckCircle2, FileText, Zap, Image as ImageIcon, Sparkles, Youtube, ArrowRight } from "lucide-react";
 
 interface CreateProjectData {
@@ -217,8 +221,86 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Social Proof */}
+      <div className="text-center py-10 text-sm text-muted-foreground border-t">
+        Trusted by 5,000+ creators to repurpose video content into written guides
+      </div>
+
+      {/* Problem/Solution */}
+      <ProblemSolution />
+
+      {/* How It Works Section */}
+      <section className="py-24 bg-muted/30">
+        <div className="container px-4 md:px-6">
+          <div className="text-center mb-16 space-y-4">
+            <h2 className="text-3xl font-bold tracking-tight">Stop Wasting Hours on Manual Notes</h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              We do the heavy lifting. You get the knowledge.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 relative max-w-5xl mx-auto">
+            {/* Step 1 */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent rounded-3xl -z-10 group-hover:scale-105 transition-transform duration-500" />
+              <div className="bg-card border rounded-2xl p-8 h-full flex flex-col items-center text-center space-y-6 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-red-100 flex items-center justify-center text-red-600 mb-2">
+                  <Youtube className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-bold">1. Drop the Link</h3>
+                <p className="text-muted-foreground">
+                  Paste any YouTube tutorial. Our AI starts "watching" immediately.
+                </p>
+              </div>
+              {/* Connector */}
+              <div className="hidden md:block absolute top-1/2 -right-6 transform -translate-y-1/2 z-20 text-muted-foreground/30">
+                <ArrowRight className="w-8 h-8" />
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent rounded-3xl -z-10 group-hover:scale-105 transition-transform duration-500" />
+              <div className="bg-card border rounded-2xl p-8 h-full flex flex-col items-center text-center space-y-6 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-600 mb-2">
+                  <Sparkles className="w-8 h-8 animate-pulse" />
+                </div>
+                <h3 className="text-xl font-bold">2. AI "Sees" the Steps</h3>
+                <p className="text-muted-foreground">
+                  Beyond transcription—we capture the exact frames where the magic happens.
+                </p>
+              </div>
+              {/* Connector */}
+              <div className="hidden md:block absolute top-1/2 -right-6 transform -translate-y-1/2 z-20 text-muted-foreground/30">
+                <ArrowRight className="w-8 h-8" />
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent rounded-3xl -z-10 group-hover:scale-105 transition-transform duration-500" />
+              <div className="bg-card border rounded-2xl p-8 h-full flex flex-col items-center text-center space-y-6 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center text-green-600 mb-2">
+                  <FileText className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-bold">3. Learn in Seconds</h3>
+                <p className="text-muted-foreground">
+                  Get a searchable, skimmable article. Export to Notion, Obsidian, or PDF.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Use Cases - NEW */}
+      <UseCases />
+
       {/* Example Showcase */}
       <ExampleShowcase />
+
+      {/* Latest Guides - NEW Dynamic Internal Links */}
+      <LatestGuides />
 
       {/* Benefits Section */}
       <section className="py-20 border-t">
@@ -243,32 +325,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FAQ Section - SEO Long-tail Capture */}
-      <section className="py-20 bg-muted/30">
-        <div className="container px-4 md:px-6">
-          <h2 className="text-3xl font-bold text-center mb-12">Frequently Asked Questions</h2>
-          <div className="max-w-3xl mx-auto space-y-6">
-            <div className="bg-card p-6 rounded-xl border space-y-3">
-              <h3 className="font-semibold text-lg">Is StepSnip a free YouTube to text converter?</h3>
-              <p className="text-muted-foreground">
-                Yes, you can start converting YouTube videos to text, transcripts, and guides for free. We offer 30 free credits to get you started.
-              </p>
-            </div>
-            <div className="bg-card p-6 rounded-xl border space-y-3">
-              <h3 className="font-semibold text-lg">Can AI turn my video into a blog post?</h3>
-              <p className="text-muted-foreground">
-                Absolutely. StepSnip analyzes your video content and restructures it into an SEO-optimized blog article or step-by-step guide ready for publishing.
-              </p>
-            </div>
-            <div className="bg-card p-6 rounded-xl border space-y-3">
-              <h3 className="font-semibold text-lg">How accurate are the transcripts?</h3>
-              <p className="text-muted-foreground">
-                Our AI provides highly accurate transcriptions by combining advanced speech recognition with context-aware processing, ideal for documentation and content repurposing.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* FAQ Section - NEW Enhanced with Schema */}
+      <FAQSection />
     </div>
   );
 }

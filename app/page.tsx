@@ -158,6 +158,7 @@ export default function Home() {
               </motion.div>
             </div>
 
+
             {/* Right Column - Preview Demo */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
@@ -165,63 +166,15 @@ export default function Home() {
               transition={{ delay: 0.4 }}
               className="hidden lg:block relative"
             >
-              <div className="relative rounded-xl border bg-card shadow-2xl p-4 overflow-hidden max-h-[600px]">
-                {/* Demo Guide Preview */}
-                <div className="space-y-3">
-                  {/* Guide Title */}
-                  <div className="border-b pb-3">
-                    <h3 className="text-base font-bold mb-0.5">How to Set Up Your Workspace</h3>
-                    <p className="text-xs text-muted-foreground">A complete step-by-step tutorial</p>
-                  </div>
-
-                  {/* Step 1 */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">1</div>
-                      <h4 className="font-semibold text-sm">Open the Application</h4>
-                    </div>
-                    <p className="text-xs text-muted-foreground pl-7">Launch the app from your desktop and navigate to the main dashboard.</p>
-                    <div className="pl-7">
-                      <Image
-                        src="/demo-step1.png"
-                        alt="Step 1 screenshot"
-                        width={400}
-                        height={225}
-                        className="rounded-md border w-full h-auto"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Step 2 */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">2</div>
-                      <h4 className="font-semibold text-sm">Configure Settings</h4>
-                    </div>
-                    <p className="text-xs text-muted-foreground pl-7">Click on preferences and adjust your workspace layout.</p>
-                    <div className="pl-7">
-                      <Image
-                        src="/demo-step2.png"
-                        alt="Step 2 screenshot"
-                        width={400}
-                        height={225}
-                        className="rounded-md border w-full h-auto"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Step 3 Preview (partially visible for scroll effect) */}
-                  <div className="space-y-1.5 opacity-50">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">3</div>
-                      <h4 className="font-semibold text-sm">Start Creating</h4>
-                    </div>
-                    <p className="text-xs text-muted-foreground pl-7 line-clamp-1">Begin your first project by clicking the...</p>
-                  </div>
-                </div>
-
-                {/* Gradient overlay at bottom to show there's more */}
-                <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-card to-transparent pointer-events-none" />
+              <div className="relative rounded-xl overflow-hidden shadow-2xl border">
+                <Image
+                  src="/hero-demo.png"
+                  alt="Step-by-step guide preview showing structured tutorial format"
+                  width={600}
+                  height={700}
+                  className="w-full h-auto"
+                  priority
+                />
               </div>
 
               {/* Floating badge */}

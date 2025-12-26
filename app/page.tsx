@@ -104,54 +104,121 @@ export default function Home() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-gradient-to-b from-primary/5 to-transparent -z-10" />
 
         <div className="container px-4 md:px-6">
-          <div className="flex flex-col items-center text-center space-y-8">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left Column - Content */}
+            <div className="flex flex-col space-y-8">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col gap-3"
+              >
+                <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm font-medium text-primary w-fit">
+                  <span className="flex h-2 w-2 rounded-full bg-primary mr-2"></span>
+                  🎉 New: Get 30 Free Credits on Sign Up
+                </div>
+                <p className="text-[10px] md:text-xs text-muted-foreground font-bold uppercase tracking-[0.2em]">
+                  Joined by 5,000+ Visual Learners & Developers
+                </p>
+              </motion.div>
+
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl"
+              >
+                Convert <span className="text-primary">YouTube to Text</span>, Articles & <br />
+                <span className="text-primary italic">Visual Guides</span> with AI
+              </motion.h1>
+
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="text-lg text-muted-foreground"
+              >
+                The best free <strong className="text-foreground">video to text converter</strong>. Turn any video into a transcript, blog post, or step-by-step tutorial with screenshots in seconds.
+              </motion.p>
+
+              {/* Input Form */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="w-full"
+              >
+                <div className="bg-card p-2 rounded-xl shadow-lg border relative z-10">
+                  <VideoInputForm onCreate={handleCreate} isCreating={isCreating} />
+                </div>
+                <p className="text-sm text-foreground mt-4 font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  No credit card required. <span className="text-muted-foreground font-normal">Free 30 credits included.</span>
+                </p>
+              </motion.div>
+            </div>
+
+            {/* Right Column - Preview Demo */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex flex-col items-center gap-3"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+              className="hidden lg:block relative"
             >
-              <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm font-medium text-primary">
-                <span className="flex h-2 w-2 rounded-full bg-primary mr-2"></span>
-                🎉 New: Get 30 Free Credits on Sign Up
+              <div className="relative rounded-2xl border bg-card shadow-2xl p-6 overflow-hidden">
+                {/* Demo Guide Preview */}
+                <div className="space-y-4">
+                  {/* Guide Title */}
+                  <div className="border-b pb-4">
+                    <h3 className="text-lg font-bold mb-1">How to Set Up Your Workspace</h3>
+                    <p className="text-sm text-muted-foreground">A complete step-by-step tutorial</p>
+                  </div>
+
+                  {/* Step 1 */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">1</div>
+                      <h4 className="font-semibold">Open the Application</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground pl-8">Launch the app from your desktop and navigate to the main dashboard.</p>
+                    <div className="pl-8">
+                      <div className="aspect-video bg-muted rounded-lg flex items-center justify-center text-xs text-muted-foreground border">
+                        📸 Screenshot
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 2 */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">2</div>
+                      <h4 className="font-semibold">Configure Settings</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground pl-8">Click on preferences and adjust your workspace layout.</p>
+                    <div className="pl-8">
+                      <div className="aspect-video bg-muted rounded-lg flex items-center justify-center text-xs text-muted-foreground border">
+                        📸 Screenshot
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 3 Preview (partially visible for scroll effect) */}
+                  <div className="space-y-2 opacity-60">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">3</div>
+                      <h4 className="font-semibold">Start Creating</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground pl-8 line-clamp-1">Begin your first project by clicking the...</p>
+                  </div>
+                </div>
+
+                {/* Gradient overlay at bottom to show there's more */}
+                <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-card to-transparent pointer-events-none" />
               </div>
-              <p className="text-[10px] md:text-xs text-muted-foreground font-bold uppercase tracking-[0.2em]">
-                Joined by 5,000+ Visual Learners & Developers
-              </p>
-            </motion.div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-4xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl max-w-4xl"
-            >
-              Convert <span className="text-primary">YouTube to Text</span>, Articles & <br />
-              <span className="text-primary italic">Visual Guides</span> with AI
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-xl text-muted-foreground max-w-2xl"
-            >
-              The best free <strong className="text-foreground">video to text converter</strong>. Turn any video into a transcript, blog post, or step-by-step tutorial with screenshots in seconds.
-            </motion.p>
-
-            {/* Input Form */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="w-full max-w-2xl mt-8"
-            >
-              <div className="bg-card p-2 rounded-xl shadow-lg border relative z-10">
-                <VideoInputForm onCreate={handleCreate} isCreating={isCreating} />
+              {/* Floating badge */}
+              <div className="absolute -top-3 -right-3 bg-primary text-primary-foreground px-3 py-1.5 rounded-full text-xs font-bold shadow-lg">
+                Auto-generated ✨
               </div>
-              <p className="text-sm text-foreground mt-4 font-bold flex items-center justify-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
-                No credit card required. <span className="text-muted-foreground font-normal">Free 30 credits included.</span>
-              </p>
             </motion.div>
           </div>
         </div>

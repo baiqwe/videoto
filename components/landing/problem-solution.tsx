@@ -63,15 +63,12 @@ export function ProblemSolution() {
                     {/* Right - Visual */}
                     <div className="relative lg:order-last order-first">
                         <div className="relative aspect-video rounded-xl overflow-hidden border shadow-2xl bg-muted">
-                            {/* Placeholder - replace with actual screenshot/illustration */}
-                            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-                                <div className="text-center space-y-2 p-8">
-                                    <div className="text-6xl">📹</div>
-                                    <p className="text-sm text-muted-foreground max-w-xs">
-                                        Video tutorials transformed into structured, searchable guides
-                                    </p>
-                                </div>
-                            </div>
+                            <Image
+                                src="/problem-solution.png"
+                                alt="Video to text transformation visualization"
+                                fill
+                                className="object-cover"
+                            />
                         </div>
                     </div>
                 </div>

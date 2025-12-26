@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useUser } from "@/hooks/use-user";
 import { useToast } from "@/hooks/use-toast";
 import VideoInputForm from "@/components/video-input-form";
@@ -164,59 +165,67 @@ export default function Home() {
               transition={{ delay: 0.4 }}
               className="hidden lg:block relative"
             >
-              <div className="relative rounded-2xl border bg-card shadow-2xl p-6 overflow-hidden">
+              <div className="relative rounded-xl border bg-card shadow-2xl p-4 overflow-hidden max-h-[600px]">
                 {/* Demo Guide Preview */}
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {/* Guide Title */}
-                  <div className="border-b pb-4">
-                    <h3 className="text-lg font-bold mb-1">How to Set Up Your Workspace</h3>
-                    <p className="text-sm text-muted-foreground">A complete step-by-step tutorial</p>
+                  <div className="border-b pb-3">
+                    <h3 className="text-base font-bold mb-0.5">How to Set Up Your Workspace</h3>
+                    <p className="text-xs text-muted-foreground">A complete step-by-step tutorial</p>
                   </div>
 
                   {/* Step 1 */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">1</div>
-                      <h4 className="font-semibold">Open the Application</h4>
+                      <div className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">1</div>
+                      <h4 className="font-semibold text-sm">Open the Application</h4>
                     </div>
-                    <p className="text-sm text-muted-foreground pl-8">Launch the app from your desktop and navigate to the main dashboard.</p>
-                    <div className="pl-8">
-                      <div className="aspect-video bg-muted rounded-lg flex items-center justify-center text-xs text-muted-foreground border">
-                        📸 Screenshot
-                      </div>
+                    <p className="text-xs text-muted-foreground pl-7">Launch the app from your desktop and navigate to the main dashboard.</p>
+                    <div className="pl-7">
+                      <Image
+                        src="/demo-step1.png"
+                        alt="Step 1 screenshot"
+                        width={400}
+                        height={225}
+                        className="rounded-md border w-full h-auto"
+                      />
                     </div>
                   </div>
 
                   {/* Step 2 */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">2</div>
-                      <h4 className="font-semibold">Configure Settings</h4>
+                      <div className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">2</div>
+                      <h4 className="font-semibold text-sm">Configure Settings</h4>
                     </div>
-                    <p className="text-sm text-muted-foreground pl-8">Click on preferences and adjust your workspace layout.</p>
-                    <div className="pl-8">
-                      <div className="aspect-video bg-muted rounded-lg flex items-center justify-center text-xs text-muted-foreground border">
-                        📸 Screenshot
-                      </div>
+                    <p className="text-xs text-muted-foreground pl-7">Click on preferences and adjust your workspace layout.</p>
+                    <div className="pl-7">
+                      <Image
+                        src="/demo-step2.png"
+                        alt="Step 2 screenshot"
+                        width={400}
+                        height={225}
+                        className="rounded-md border w-full h-auto"
+                      />
                     </div>
                   </div>
 
                   {/* Step 3 Preview (partially visible for scroll effect) */}
-                  <div className="space-y-2 opacity-60">
+                  <div className="space-y-1.5 opacity-50">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">3</div>
-                      <h4 className="font-semibold">Start Creating</h4>
+                      <div className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">3</div>
+                      <h4 className="font-semibold text-sm">Start Creating</h4>
                     </div>
-                    <p className="text-sm text-muted-foreground pl-8 line-clamp-1">Begin your first project by clicking the...</p>
+                    <p className="text-xs text-muted-foreground pl-7 line-clamp-1">Begin your first project by clicking the...</p>
                   </div>
                 </div>
 
                 {/* Gradient overlay at bottom to show there's more */}
-                <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-card to-transparent pointer-events-none" />
+                <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-card to-transparent pointer-events-none" />
               </div>
 
               {/* Floating badge */}
-              <div className="absolute -top-3 -right-3 bg-primary text-primary-foreground px-3 py-1.5 rounded-full text-xs font-bold shadow-lg">
+              <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground px-2.5 py-1 rounded-full text-xs font-bold shadow-lg">
                 Auto-generated ✨
               </div>
             </motion.div>

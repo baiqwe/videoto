@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 import yt_dlp
 from supabase import create_client, Client
 import requests
+import google.generativeai as genai
 
 # Optional imports for fallback methods (not needed for Storyboard)
 try:
@@ -44,14 +45,14 @@ SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL"
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET") or os.getenv("STORAGE_BUCKET", "guide_images")
 
-# API Configuration - OpenRouter
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# API Configuration - Google Gemini
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-if OPENAI_API_KEY:
-    print(f"🔌 Using OpenRouter API at {OPENAI_BASE_URL}")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    print(f"🔌 Using Google Gemini API")
 else:
-    print("⚠️ Warning: OPENAI_API_KEY not set - processing will fail")
+    print("⚠️ Warning: GEMINI_API_KEY not set - processing will fail")
 
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -641,26 +642,25 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
     prompt = prompt.replace('{duration_seconds}', f'{duration:.1f}')
     prompt = prompt.replace('{duration}', str(duration))
 
-    # --- REFACTORED GENERATION LOGIC ---
+    # --- REFACTORED: Using Google Gemini for YouTube URL Analysis ---
 
-    # Model priority for OpenRouter
+    # Gemini models that support YouTube URLs
     candidate_models = [
-        'openai/gpt-4o',           # Best quality vision model
-        'openai/gpt-4o-mini',      # Faster, cheaper fallback
-        'anthropic/claude-3.5-sonnet',  # Alternative high-quality option
+        'gemini-2.5-pro',           # Best quality, supports YouTube URLs
+        'gemini-flash-latest',      # Faster, cheaper, also supports YouTube URLs
     ]
     
     last_exception = None
 
     # 1. Determine Analysis Mode
-    use_vision_mode = False
+    use_youtube_url = True  # Always use YouTube URL with Gemini
     if transcript_text and len(transcript_text.strip()) > 0:
         print(f"✅ Found transcript ({len(transcript_text)} chars). Using Text Analysis Mode.")
+        use_youtube_url = False
     else:
-        print("⚠️ No transcript found. Switching to Vision/Video Analysis Mode.")
-        use_vision_mode = True
+        print("⚠️ No transcript found. Using YouTube URL Analysis Mode with Gemini.")
 
-    # 2. Define System Prompt (Global for both modes)
+    # 2. System Prompt
     system_prompt = """You are an expert video content analyzer. You MUST return valid JSON with the exact structure specified.
 
 CRITICAL INSTRUCTIONS:
@@ -691,163 +691,75 @@ Example of CORRECT output format:
 Return ONLY valid JSON, no markdown, no code blocks."""
 
     for model_name in candidate_models:
-        print(f"🔄 Attempting analysis with model: {model_name}")
+        print(f"🔄 Attempting analysis with Gemini model: {model_name}")
         try:
-            response_text = ""
-            messages = []
+            # Initialize Gemini model
+            model = genai.GenerativeModel(model_name)
             
-            # 3. Construct Payload based on Mode
-            if use_vision_mode:
-                # === VISION MODE (Video URL in Text) ===
-                print(f"   🎥 Constructing Vision Payload for {model_name} (Video URL in text)")
+            # Prepare content based on mode
+            if use_youtube_url:
+                # === YOUTUBE URL MODE (Gemini's native capability) ===
+                print(f"   🎥 Using YouTube URL for {model_name}")
                 
-                # CRITICAL: Substitute ALL placeholders in the prompt
-                # Replace {transcript} with instruction to analyze video URL
-                # Replace {video_url}, {duration_formatted}, {duration_seconds} with actual values
-                vision_text = f'''(Transcript unavailable. Please watch and analyze this YouTube video directly)
+                # Prepare the system and user prompts
+                final_prompt = f'''Please analyze this YouTube video:
 
 Video URL: {video_url}
 Duration: {format_time(duration)} ({duration:.1f} seconds)
 
-IMPORTANT: You MUST watch the video at the URL above to understand its content. Do not make up generic content.'''
+{prompt.split('{transcript}')[1] if '{transcript}' in prompt else prompt}'''
                 
-                vision_prompt = prompt.replace('{transcript}', vision_text)
-                vision_prompt = vision_prompt.replace('{video_url}', video_url)
-                vision_prompt = vision_prompt.replace('{duration_formatted}', format_time(duration))
-                vision_prompt = vision_prompt.replace('{duration_seconds:.1f}', f'{duration:.1f}')
+                # Gemini can handle YouTube URLs directly in the prompt
+                response = model.generate_content(
+                    [final_prompt],
+                    generation_config={"temperature": 0.7}
+                )
                 
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": vision_prompt}
-                ]
             else:
                 # === TEXT MODE (Transcript) ===
-                print(f"   📄 Constructing Text Payload for {model_name}")
+                print(f"   📄 Using Transcript for {model_name}")
                 final_prompt = prompt.replace('{transcript}', transcript_text)
                 
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": final_prompt}
-                ]
+                # Generate content with text only
+                response = model.generate_content(
+                    [system_prompt, final_prompt],
+                    generation_config={"temperature": 0.7}
+                )
+            
+            response_text = response.text
+            print(f"   ✅ API request successful with {model_name}")
 
-            # API Request with Retry Logic
-            # OpenRouter requires specific headers
-            headers = {
-                "Authorization": f"Bearer {OPENAI_API_KEY}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://stepsnip.com",  # Required by OpenRouter
-                "X-Title": "StepSnip"  # Optional but recommended
-            }
-            
-            payload = {
-                "model": model_name,
-                "messages": messages,
-                "temperature": 0.7,
-            }
-            
-            # Retry logic: 3 attempts with exponential backoff
-            max_retries = 3
-            retry_delay = 2  # Initial delay in seconds
-            
-            for attempt in range(max_retries):
-                try:
-                    print(f"   📡 Sending request to {OPENAI_BASE_URL}/chat/completions... (Attempt {attempt + 1}/{max_retries})")
-                    response = requests.post(
-                        f"{OPENAI_BASE_URL}/chat/completions",
-                        headers=headers,
-                        json=payload,
-                        timeout=180  # 3 min timeout for video analysis
-                    )
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        response_text = data['choices'][0]['message']['content']
-                        print(f"   ✅ API request successful with {model_name}")
-                        break  # Success, exit retry loop
-                    else:
-                        error_msg = f"API Error {response.status_code}: {response.text[:200]}"
-                        print(f"   ❌ API Request Failed (Status {response.status_code})")
-                        print(f"   Response Body: {response.text}")
-                        
-                        # If this is the last retry, raise the exception
-                        if attempt == max_retries - 1:
-                            raise Exception(error_msg)
-                        
-                        # Exponential backoff: 2^attempt seconds (2s, 4s, 8s)
-                        backoff_time = retry_delay * (2 ** attempt)
-                        print(f"   ⏳ Retrying in {backoff_time}s...")
-                        time.sleep(backoff_time)
-
-                except requests.exceptions.Timeout:
-                    # ... existing timeout handling ...
-                    last_error = "Request timeout after 120s"
-                    if attempt < max_retries - 1:
-                        # ...
-                        pass
-                    else:
-                         raise Exception(last_error)
-                except requests.exceptions.RequestException as e:
-                     # ...
-                     pass
-                except requests.exceptions.Timeout:
-                    last_error = "Request timeout after 120s"
-                    if attempt < max_retries - 1:
-                        wait_time = retry_delay * (2 ** attempt)
-                        print(f"   ⚠️  {last_error}")
-                        print(f"   🔄 Retrying in {wait_time}s... (Attempt {attempt + 2}/{max_retries})")
-                        time.sleep(wait_time)
-                        continue
-                    else:
-                        raise Exception(last_error)
-                except requests.exceptions.RequestException as e:
-                    last_error = f"Network error: {str(e)}"
-                    if attempt < max_retries - 1:
-                        wait_time = retry_delay * (2 ** attempt)
-                        print(f"   ⚠️  {last_error}")
-                        print(f"   🔄 Retrying in {wait_time}s... (Attempt {attempt + 2}/{max_retries})")
-                        time.sleep(wait_time)
-                        continue
-                    else:
-                        raise Exception(last_error)
-            
-            if response.status_code != 200:
-                raise Exception(f"API failed after {max_retries} attempts: {last_error}")
-                
-            resp_json = response.json()
-            response_text = resp_json['choices'][0]['message']['content']
-
-            # Parse JSON response with improved error handling
+            # Parse JSON response
             try:
                 text = response_text.strip()
                 
-                # Method 1: Remove markdown code blocks (```json...``` or ```...```)
+                # Remove markdown code blocks if present
                 if '```json' in text:
                     text = text.split('```json')[1].split('```')[0].strip()
                 elif '```' in text:
                     text = text.split('```')[1].split('```')[0].strip()
                 
-                # Method 2: Try regex to extract JSON object (handles extra text before/after)
-                import re
+                # Extract JSON using regex if needed
                 if not text.startswith('{'):
                     json_match = re.search(r'(\{.*\})', text, re.DOTALL)
                     if json_match:
                         text = json_match.group(1)
-                        print("   📝 Extracted JSON using regex (had extra text)")
+                        print("   📝 Extracted JSON using regex")
                 
-                # Method 3: Parse JSON
+                # Parse JSON
                 data = json.loads(text)
                 
                 # Validate structure
                 if not isinstance(data, dict):
                     raise ValueError("Response is not a dictionary")
                 
-                # Check for 'sections' or 'steps' (some models use different field names)
+                # Check for 'sections' or 'steps'
                 if 'sections' in data:
                     sections_data = data['sections']
                 elif 'steps' in data:
                     sections_data = data['steps']
                     print("   📝 Using 'steps' field (renamed from 'sections')")
-                    data['sections'] = sections_data  # Normalize to 'sections'
+                    data['sections'] = sections_data
                 else:
                     raise ValueError("Response missing both 'sections' and 'steps' fields")
                 
@@ -855,62 +767,74 @@ IMPORTANT: You MUST watch the video at the URL above to understand its content. 
                     raise ValueError("'sections/steps' is not a list")
                 
                 if len(sections_data) == 0:
-                     print(f"   ⚠️  Model {model_name} returned 0 sections. Treating as failure.")
-                     print(f"   Response Preview: {response_text[:1000]}")
-                     raise ValueError("Model returned 0 sections")
+                    print(f"   ⚠️ Model {model_name} returned 0 sections. Treating as failure.")
+                    raise ValueError("Model returned 0 sections")
 
-                # Normalize section fields for compatibility with different models
+                # Normalize section fields
                 normalized_sections = []
                 for idx, section in enumerate(sections_data):
-                    normalized = {}
+                    normalized = {
+                        'section_order': (
+                            section.get('section_order') or 
+                            section.get('step_order') or 
+                            section.get('order') or 
+                            idx + 1
+                        ),
+                        'title': (
+                            section.get('title') or 
+                            section.get('name') or 
+                            f"Section {idx + 1}"
+                        ),
+                        'content': (
+                            section.get('content') or 
+                            section.get('instruction') or 
+                            section.get('description') or 
+                            section.get('title') or
+                            "Content not provided"
+                        ),
+                        'needs_screenshot': section.get('needs_screenshot', False)
+                    }
                     
-                    # Normalize section_order (various field names)
-                    normalized['section_order'] = (
-                        section.get('section_order') or 
-                        section.get('step_order') or 
-                        section.get('order') or 
-                        section.get('step_number') or 
-                        section.get('number') or 
-                        idx + 1
-                    )
-                    
-                    # Normalize title
-                    normalized['title'] = (
-                        section.get('title') or 
-                        section.get('name') or 
-                        section.get('heading') or 
-                        section.get('step_title') or 
-                        f"Section {normalized['section_order']}"
-                    )
-                    
-                    # Normalize content/description
-                    normalized['content'] = (
-                        section.get('content') or 
-                        section.get('instruction') or  # Used by database prompt
-                        section.get('description') or 
-                        section.get('text') or 
-                        section.get('body') or 
-                        section.get('step_content') or 
-                        section.get('details') or 
-                        section.get('visual_scene_description') or  # Used by database prompt
-                        normalized['title']  # Fallback to title if no content
-                    )
-                    
-                    # Normalize timestamp
+                    # Parse timestamp
                     raw_timestamp = (
                         section.get('timestamp_seconds') or 
                         section.get('timestamp') or 
-                        section.get('time') or 
-                        section.get('start_time') or 
-                        section.get('time_seconds') or 
                         0
                     )
-                    # Handle string timestamps like "1:30" or "01:30:00"
                     if isinstance(raw_timestamp, str):
                         parts = raw_timestamp.replace('s', '').split(':')
-                        try:
-                            if len(parts) == 1:
-                                normalized['timestamp_seconds'] = float(parts[0])
+                        if len(parts) == 1:
+                            normalized['timestamp_seconds'] = float(parts[0])
+                        elif len(parts) == 2:
+                            normalized['timestamp_seconds'] = int(parts[0]) * 60 + float(parts[1])
+                        else:
+                            normalized['timestamp_seconds'] = int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+                    else:
+                        normalized['timestamp_seconds'] = float(raw_timestamp)
+                    
+                    normalized_sections.append(normalized)
+                
+                data['sections'] = normalized_sections
+                
+                print(f"✅ Successfully parsed {len(normalized_sections)} sections using {model_name}")
+                return data
+                
+            except json.JSONDecodeError as e:
+                print(f"   ❌ JSON parsing failed: {e}")
+                print(f"   Response Preview: {response_text[:500]}")
+                raise Exception(f"Invalid JSON response: {e}")
+            except Exception as e:
+                print(f"   ❌ Response validation failed: {e}")
+                raise
+                
+        except Exception as e:
+            print(f"⚠️ Model {model_name} failed: {str(e)}")
+            last_exception = e
+            continue  # Try next model
+    
+    # If all models failed
+    print("❌ All Gemini models failed.")
+    raise last_exception or Exception("All models failed")
                             elif len(parts) == 2:
                                 normalized['timestamp_seconds'] = int(parts[0]) * 60 + float(parts[1])
                             elif len(parts) == 3:
@@ -1174,15 +1098,14 @@ if __name__ == "__main__":
         print("❌ Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
         exit(1)
     
-    # Check relay platform API configuration
-    if not OPENAI_BASE_URL:
-        print("❌ Error: OPENAI_BASE_URL must be set")
+    if not STORAGE_BUCKET:
+        print("❌ Error: SUPABASE_STORAGE_BUCKET or STORAGE_BUCKET must be set")
         exit(1)
     
-    if not OPENAI_API_KEY:
-        print("❌ Error: OPENAI_API_KEY must be set")
+    if not GEMINI_API_KEY:
+        print("❌ Error: GEMINI_API_KEY must be set")
         exit(1)
     
-    print(f"✅ Configuration OK - Using relay platform: {OPENAI_BASE_URL}")
+    print(f"✅ Configuration OK - Using Google Gemini API")
     worker_loop()
-
+```

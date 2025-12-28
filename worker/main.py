@@ -695,30 +695,17 @@ Return ONLY valid JSON, no markdown, no code blocks."""
             
             # 3. Construct Payload based on Mode
             if use_vision_mode:
-                # === VISION MODE (Video URL) ===
-                print(f"   🎥 Constructing Video Payload for {model_name}")
+                # === VISION MODE (Video URL in Text) ===
+                print(f"   🎥 Constructing Vision Payload for {model_name} (Video URL in text)")
                 
-                # Adapt prompt for vision
+                # Include video URL directly in text prompt
+                # Note: Most vision models prefer the URL in text rather than as a structured video_url object
                 vision_prompt = prompt.replace('{transcript}', 
-                    '(Transcripts are unavailable. Please analyze the video content directly from the visual stream and audio.)')
+                    f'(Transcript unavailable. Please analyze this video: {video_url})')
                 
                 messages = [
                     {"role": "system", "content": system_prompt},
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": vision_prompt
-                            },
-                            {
-                                "type": "video_url",
-                                "video_url": {
-                                    "url": video_url
-                                }
-                            }
-                        ]
-                    }
+                    {"role": "user", "content": vision_prompt}
                 ]
             else:
                 # === TEXT MODE (Transcript) ===
@@ -736,32 +723,31 @@ Return ONLY valid JSON, no markdown, no code blocks."""
                 "Content-Type": "application/json"
             }
             
-            # Remove response_format logic to ensure Qwen compatibility
             payload = {
                 "model": model_name,
                 "messages": messages,
                 "temperature": 0.7,
             }
             
-            print(f"   📡 Sending request to {OPENAI_BASE_URL}/chat/completions...")
-            
-            # Retry logic with exponential backoff
+            # Retry logic: 3 attempts with exponential backoff
             max_retries = 3
-            retry_delay = 2
-            last_error = None
-            
             for attempt in range(max_retries):
                 try:
+                    print(f"   📡 Sending request to {OPENAI_BASE_URL}/chat/completions... (Attempt {attempt + 1}/{max_retries})")
                     response = requests.post(
                         f"{OPENAI_BASE_URL}/chat/completions",
                         headers=headers,
                         json=payload,
-                        timeout=120
+                        timeout=180  # 3 min timeout for video analysis
                     )
                     
                     if response.status_code == 200:
-                        break
+                        data = response.json()
+                        response_text = data['choices'][0]['message']['content']
+                        print(f"   ✅ API request successful with {model_name}")
+                        break  # Success, exit retry loop
                     else:
+                        error_msg = f"API Error {response.status_code}: {response.text[:200]}"
                         print(f"   ❌ API Request Failed (Status {response.status_code})")
                         print(f"   Response Body: {response.text}")
                         last_error = f"API Error {response.status_code}: {response.text}"

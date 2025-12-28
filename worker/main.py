@@ -698,10 +698,20 @@ Return ONLY valid JSON, no markdown, no code blocks."""
                 # === VISION MODE (Video URL in Text) ===
                 print(f"   🎥 Constructing Vision Payload for {model_name} (Video URL in text)")
                 
-                # Include video URL directly in text prompt
-                # Note: Most vision models prefer the URL in text rather than as a structured video_url object
-                vision_prompt = prompt.replace('{transcript}', 
-                    f'(Transcript unavailable. Please analyze this video: {video_url})')
+                # CRITICAL: Substitute ALL placeholders in the prompt
+                # Replace {transcript} with instruction to analyze video URL
+                # Replace {video_url}, {duration_formatted}, {duration_seconds} with actual values
+                vision_text = f'''(Transcript unavailable. Please watch and analyze this YouTube video directly)
+
+Video URL: {video_url}
+Duration: {format_time(duration)} ({duration:.1f} seconds)
+
+IMPORTANT: You MUST watch the video at the URL above to understand its content. Do not make up generic content.'''
+                
+                vision_prompt = prompt.replace('{transcript}', vision_text)
+                vision_prompt = vision_prompt.replace('{video_url}', video_url)
+                vision_prompt = vision_prompt.replace('{duration_formatted}', format_time(duration))
+                vision_prompt = vision_prompt.replace('{duration_seconds:.1f}', f'{duration:.1f}')
                 
                 messages = [
                     {"role": "system", "content": system_prompt},

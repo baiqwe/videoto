@@ -1042,11 +1042,9 @@ def process_project(project: Dict):
             
             image_path = None
             
-            # Extract screenshot only if:
-            # Extract screenshot only if:
-            # 1. Generation mode is text_with_images AND
-            # 2. Section needs screenshot
-            if generation_mode == 'text_with_images' and needs_screenshot:
+            # Extract screenshot for ALL steps in text_with_images mode
+            # (ignore needs_screenshot flag since user explicitly chose this mode)
+            if generation_mode == 'text_with_images':
                 screenshot_path = None
                 
                 # Extract screenshot using YouTube Storyboard (no video download needed!)

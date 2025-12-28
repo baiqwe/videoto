@@ -734,6 +734,8 @@ Return ONLY valid JSON, no markdown, no code blocks."""
             
             # Retry logic: 3 attempts with exponential backoff
             max_retries = 3
+            retry_delay = 2  # Initial delay in seconds
+            
             for attempt in range(max_retries):
                 try:
                     print(f"   📡 Sending request to {OPENAI_BASE_URL}/chat/completions... (Attempt {attempt + 1}/{max_retries})")
@@ -753,17 +755,15 @@ Return ONLY valid JSON, no markdown, no code blocks."""
                         error_msg = f"API Error {response.status_code}: {response.text[:200]}"
                         print(f"   ❌ API Request Failed (Status {response.status_code})")
                         print(f"   Response Body: {response.text}")
-                        last_error = f"API Error {response.status_code}: {response.text}"
                         
-                        if response.status_code in [502, 503, 504]:
-                            if attempt < max_retries - 1:
-                                wait_time = retry_delay * (2 ** attempt)
-                                print(f"   🔄 Retrying in {wait_time}s... (Attempt {attempt + 2}/{max_retries})")
-                                time.sleep(wait_time)
-                                continue
-                        else:
-                            # For 400/401/403 errors, don't retry, just fail
-                            raise Exception(f"API Error {response.status_code}: {response.text}")
+                        # If this is the last retry, raise the exception
+                        if attempt == max_retries - 1:
+                            raise Exception(error_msg)
+                        
+                        # Exponential backoff: 2^attempt seconds (2s, 4s, 8s)
+                        backoff_time = retry_delay * (2 ** attempt)
+                        print(f"   ⏳ Retrying in {backoff_time}s...")
+                        time.sleep(backoff_time)
 
                 except requests.exceptions.Timeout:
                     # ... existing timeout handling ...

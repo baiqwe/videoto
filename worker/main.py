@@ -44,14 +44,14 @@ SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL"
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET") or os.getenv("STORAGE_BUCKET", "guide_images")
 
-# API Configuration (Relay Platform Only)
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
+# API Configuration - OpenRouter
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-if OPENAI_BASE_URL and OPENAI_API_KEY:
-    print(f"🔌 Using Relay Platform API at {OPENAI_BASE_URL}")
+if OPENAI_API_KEY:
+    print(f"🔌 Using OpenRouter API at {OPENAI_BASE_URL}")
 else:
-    print("⚠️ Warning: OPENAI_BASE_URL or OPENAI_API_KEY not set")
+    print("⚠️ Warning: OPENAI_API_KEY not set - processing will fail")
 
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -640,11 +640,11 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
 
     # --- REFACTORED GENERATION LOGIC ---
 
-    # Model priority: Qwen3-VL (Thinking) for robust multimodal, then gpt-4o as solid fallback
+    # Model priority for OpenRouter
     candidate_models = [
-        'Qwen3-VL-235B-A22B-Thinking',  # DMXAPI Recommended: Strong Vision + Text
-        'gpt-4o',                       # Primary Fallback: High quality, reliable
-        'gpt-4o-mini',                  # Secondary Fallback: Faster, cheaper
+        'openai/gpt-4o',           # Best quality vision model
+        'openai/gpt-4o-mini',      # Faster, cheaper fallback
+        'anthropic/claude-3.5-sonnet',  # Alternative high-quality option
     ]
     
     last_exception = None
@@ -972,25 +972,47 @@ def process_project(project: Dict):
             shutil.rmtree(project_dir)
         project_dir.mkdir(exist_ok=True)
         
-        # Step 1: Download subtitles ONLY (no video download!)
-        print("📥 Downloading subtitles using yt-dlp...")
-        video_info = download_subtitles_only(video_url, project_dir)
+        # ========================================
+        # SIMPLIFIED: Pure Vision Mode
+        # Skip all YouTube metadata/subtitle extraction
+        # ========================================
         
-        subtitle_path = video_info.get('subtitle_path')
-        duration = video_info['duration']
+        print("🎥 Using Pure Vision Mode (no subtitle download)")
         
-        # Update project with duration
+        # Extract basic info from URL
+        video_id = None
+        if 'youtube.com' in video_url or 'youtu.be' in video_url:
+            import re
+            match = re.search(r'(?:v=|/)([a-zA-Z0-9_-]{11})', video_url)
+            if match:
+                video_id = match.group(1)
+        
+        if not video_id:
+            video_id = "unknown"
+        
+        # Default duration for credit calculation (will be updated by model if it can detect)
+        duration = 600  # Default 10 minutes
+        
+        # Update project with estimated duration
         supabase.table('projects').update({
             'video_duration_seconds': duration
         }).eq('id', project_id).execute()
         
-        # Calculate credits cost based on duration (10 credits per minute, minimum 10)
+        # Calculate credits cost based on default duration
         minutes = (duration + 59) // 60  # Round up
         credits_cost = max(10, int(minutes * 10))
         
+        # Create video_info dict for compatibility
+        video_info = {
+            'subtitle_path': None,  # Always None - pure vision mode
+            'duration': duration,
+            'video_id': video_id,
+            'title': ''
+        }
+        
         # Step 2: Analyze content with Gemini (get summary and sections)
         # Pass video_url instead of video_path for Storyboard
-        analysis = analyze_content(None, subtitle_path, video_url, duration, generation_mode)
+        analysis = analyze_content(None, video_info['subtitle_path'], video_url, duration, generation_mode)
         
         if not analysis or 'sections' not in analysis:
             raise Exception("No analysis extracted from video")

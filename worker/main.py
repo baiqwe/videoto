@@ -504,22 +504,25 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
     # 1. Try to get transcript first (preferred method)
     transcript_text = parse_vtt_to_text(subtitle_path)
     
-    # 2. Whisper Fallback
-    if not transcript_text and video_path:
+    # 2. Whisper Fallback (only if video_path is available)
+    if not transcript_text and video_path is not None:
         print("⚠️ No VTT subtitles found. Attempting Whisper transcription...")
-        # Find audio file (usually same name as video but m4a)
-        # Note: In Storyboard mode, video_path is None, so we skip Whisper and go to Vision Mode
-        audio_candidates = list(video_path.parent.glob(f"{video_path.stem}*.m4a"))
-        if not audio_candidates:
-             # Try extracting audio if not found? 
-             # For now, just assume yt-dlp downloaded it or the video file itself can be sent (if small enough)
-             # Sending large video file to whisper size limit is 25MB usually.
-             pass
-        else:
-             audio_path = audio_candidates[0]
-             transcript_text = transcribe_with_whisper(audio_path)
-             if transcript_text:
-                 print("✅ Whisper transcription successful!")
+        try:
+            # Find audio file (usually same name as video but m4a)
+            audio_candidates = list(video_path.parent.glob(f"{video_path.stem}*.m4a"))
+            if not audio_candidates:
+                # Try extracting audio if not found? 
+                # For now, just assume yt-dlp downloaded it or the video file itself can be sent (if small enough)
+                # Sending large video file to whisper size limit is 25MB usually.
+                print("   ⚠️ No audio file found for Whisper transcription")
+            else:
+                audio_path = audio_candidates[0]
+                transcript_text = transcribe_with_whisper(audio_path)
+                if transcript_text:
+                    print("✅ Whisper transcription successful!")
+        except Exception as e:
+            print(f"   ⚠️ Whisper fallback failed: {e}")
+            # Continue to Vision Mode fallback
     
     has_transcript = bool(transcript_text)
     
@@ -1052,9 +1055,9 @@ def process_project(project: Dict):
             
             image_path = None
             
-            # Extract screenshot for ALL steps in text_with_images mode
-            # (ignore needs_screenshot flag since user explicitly chose this mode)
-            if generation_mode == 'text_with_images':
+            # Extract screenshot only when AI explicitly requests it
+            # Respects the needs_screenshot flag to avoid unnecessary storyboard extraction
+            if generation_mode == 'text_with_images' and needs_screenshot:
                 screenshot_path = None
                 
                 # Extract screenshot using YouTube Storyboard (no video download needed!)
@@ -1081,6 +1084,9 @@ def process_project(project: Dict):
                         )
                     except Exception as e_upload:
                          print(f"   ☁️ Upload failed: {e_upload}")
+            elif generation_mode == 'text_with_images' and not needs_screenshot:
+                # AI determined this section doesn't need a screenshot
+                print(f"   📝 Section {section_order}: No screenshot needed (AI marked needs_screenshot=False)")
             elif generation_mode == 'text_only':
                 # Force no screenshot in text-only mode
                 section['needs_screenshot'] = False

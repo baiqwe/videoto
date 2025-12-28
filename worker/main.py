@@ -718,9 +718,12 @@ Return ONLY valid JSON, no markdown, no code blocks."""
                 ]
 
             # API Request with Retry Logic
+            # OpenRouter requires specific headers
             headers = {
                 "Authorization": f"Bearer {OPENAI_API_KEY}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://stepsnip.com",  # Required by OpenRouter
+                "X-Title": "StepSnip"  # Optional but recommended
             }
             
             payload = {

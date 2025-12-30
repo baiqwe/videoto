@@ -820,6 +820,21 @@ Do NOT generate generic or placeholder content.
                 # Normalize section fields
                 normalized_sections = []
                 for idx, section in enumerate(sections_data):
+                    # Parse needs_screenshot - be aggressive, default to True for visual guides
+                    raw_screenshot = (
+                        section.get('needs_screenshot') or 
+                        section.get('screenshot') or 
+                        section.get('has_screenshot') or
+                        section.get('visual') or
+                        section.get('image') or
+                        True  # Default to True for text_with_images mode
+                    )
+                    # Handle string "true"/"false" values
+                    if isinstance(raw_screenshot, str):
+                        needs_screenshot = raw_screenshot.lower() in ('true', 'yes', '1')
+                    else:
+                        needs_screenshot = bool(raw_screenshot)
+                    
                     normalized = {
                         'section_order': (
                             section.get('section_order') or 
@@ -839,8 +854,9 @@ Do NOT generate generic or placeholder content.
                             section.get('title') or
                             "Content not provided"
                         ),
-                        'needs_screenshot': section.get('needs_screenshot', False)
+                        'needs_screenshot': needs_screenshot
                     }
+                    print(f"   📷 Section {idx+1}: needs_screenshot={needs_screenshot}")
                     
                     # Parse timestamp
                     raw_timestamp = (

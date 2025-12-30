@@ -702,65 +702,21 @@ Return ONLY valid JSON, no markdown, no code blocks."""
             
             # Prepare content based on mode
             if use_youtube_url:
-                # === YOUTUBE URL MODE (Gemini 2.0+ native video understanding) ===
-                print(f"   🎥 Attempting YouTube video analysis with {model_name}")
+                # === NO SUBTITLES AVAILABLE ===
+                # Gemini cannot directly access YouTube videos via URL
+                # We require subtitles for accurate analysis
+                print(f"   ⚠️ No subtitles available for video analysis")
+                print(f"   ℹ️ Gemini API cannot directly access YouTube videos via URL")
+                print(f"   💡 Solution: Please use a video with captions/subtitles enabled")
                 
-                # Gemini 2.0+ supports YouTube URLs via Part.from_uri
-                # Reference: https://ai.google.dev/gemini-api/docs/vision
-                try:
-                    # Method 1: Use Part.from_uri for YouTube URLs (Gemini 2.0+)
-                    video_part = genai.types.Part.from_uri(
-                        file_uri=video_url,
-                        mime_type="video/mp4"
-                    )
-                    
-                    # Build the prompt
-                    text_prompt = f'''{system_prompt}
-
-Please analyze this YouTube video and create a step-by-step guide.
-Watch the video carefully and extract the actual content shown.
-
-Video URL: {video_url}
-Video Duration: {format_time(duration)} ({duration:.1f} seconds)
-
-IMPORTANT: Base your response ONLY on what you can see and hear in the video.
-Do NOT generate generic or placeholder content.
-
-{prompt.split('{transcript}')[1] if '{transcript}' in prompt else prompt}'''
-                    
-                    # Generate with video + text
-                    response = model.generate_content(
-                        [video_part, text_prompt],
-                        generation_config={"temperature": 0.5}  # Lower temperature for accuracy
-                    )
-                    
-                    # Verify the response is not generic/hallucinated
-                    response_preview = response.text[:200] if response.text else ""
-                    generic_indicators = [
-                        "React project", "Tailwind CSS", "navigation bar",
-                        "setting up", "install dependencies", "npm install"
-                    ]
-                    
-                    # Check if response seems generic
-                    is_generic = sum(1 for indicator in generic_indicators if indicator.lower() in response_preview.lower()) >= 2
-                    if is_generic:
-                        print(f"   ⚠️ Response appears generic, video may not be accessible")
-                        raise Exception("Generated content appears generic - video may not be accessible")
-                    
-                except Exception as video_error:
-                    print(f"   ⚠️ YouTube video analysis failed: {video_error}")
-                    print(f"   ℹ️ This could be due to:")
-                    print(f"      - Video is private/age-restricted")
-                    print(f"      - Gemini API limitations for YouTube")
-                    print(f"      - Network/quota issues")
-                    print(f"   💡 Solution: Use a video with subtitles/captions enabled")
-                    
-                    # Raise with helpful message
-                    raise Exception(
-                        f"Cannot analyze video without subtitles. "
-                        f"Please choose a video with captions enabled, or try again later. "
-                        f"Technical: {str(video_error)[:100]}"
-                    )
+                raise Exception(
+                    "Cannot analyze video without subtitles. "
+                    "Gemini API requires either:\n"
+                    "  1. Video subtitles/captions (recommended)\n"
+                    "  2. Uploaded video file via File API\n\n"
+                    "Please choose a YouTube video with captions enabled, "
+                    "or try a different video."
+                )
                 
             else:
                 # === TEXT MODE (Transcript) - Most reliable method ===

@@ -702,25 +702,50 @@ Return ONLY valid JSON, no markdown, no code blocks."""
             
             # Prepare content based on mode
             if use_youtube_url:
-                # === YOUTUBE URL MODE (Gemini's native capability) ===
+                # === YOUTUBE URL MODE (Gemini 2.0 native video understanding) ===
                 print(f"   🎥 Using YouTube URL for {model_name}")
                 
-                # Prepare the system and user prompts
-                final_prompt = f'''Please analyze this YouTube video:
+                # For Gemini 2.0, we need to use the File API or pass video content correctly
+                # Gemini can analyze YouTube videos when passed as a Part with file_data
+                try:
+                    from google.generativeai.types import content_types
+                    
+                    # Create video part for Gemini
+                    video_part = {
+                        "file_data": {
+                            "file_uri": video_url,
+                            "mime_type": "video/mp4"
+                        }
+                    }
+                    
+                    # Build the prompt
+                    text_prompt = f'''{system_prompt}
 
-Video URL: {video_url}
-Duration: {format_time(duration)} ({duration:.1f} seconds)
+Please analyze this YouTube video and create a step-by-step guide.
+
+Video Duration: {format_time(duration)} ({duration:.1f} seconds)
 
 {prompt.split('{transcript}')[1] if '{transcript}' in prompt else prompt}'''
-                
-                # Gemini can handle YouTube URLs directly in the prompt
-                response = model.generate_content(
-                    [final_prompt],
-                    generation_config={"temperature": 0.7}
-                )
+                    
+                    # Generate with video + text
+                    response = model.generate_content(
+                        [video_part, text_prompt],
+                        generation_config={"temperature": 0.7}
+                    )
+                    
+                except Exception as video_error:
+                    print(f"   ⚠️ Video mode failed: {video_error}")
+                    print(f"   ⚠️ Gemini cannot access YouTube URL directly without transcript")
+                    print(f"   ⚠️ Please ensure subtitles are available for accurate analysis")
+                    
+                    # Fallback: Generate a helpful error message instead of hallucinating
+                    raise Exception(
+                        f"No transcript available and Gemini cannot access YouTube video directly. "
+                        f"Please try a video with subtitles/captions enabled."
+                    )
                 
             else:
-                # === TEXT MODE (Transcript) ===
+                # === TEXT MODE (Transcript) - Most reliable method ===
                 print(f"   📄 Using Transcript for {model_name}")
                 final_prompt = prompt.replace('{transcript}', transcript_text)
                 
@@ -868,42 +893,53 @@ def process_project(project: Dict):
         project_dir.mkdir(exist_ok=True)
         
         # ========================================
-        # SIMPLIFIED: Pure Vision Mode
-        # Skip all YouTube metadata/subtitle extraction
+        # Step 1: Download subtitles and metadata from YouTube
+        # This is REQUIRED for accurate content analysis
         # ========================================
         
-        print("🎥 Using Pure Vision Mode (no subtitle download)")
+        print("📥 Downloading video metadata and subtitles...")
         
-        # Extract basic info from URL
-        video_id = None
-        if 'youtube.com' in video_url or 'youtu.be' in video_url:
-            import re
-            match = re.search(r'(?:v=|/)([a-zA-Z0-9_-]{11})', video_url)
-            if match:
-                video_id = match.group(1)
+        try:
+            video_info = download_subtitles_only(video_url, project_dir)
+            duration = video_info.get('duration', 600)
+            video_id = video_info.get('video_id', 'unknown')
+            
+            # Update project with actual duration
+            supabase.table('projects').update({
+                'video_duration_seconds': duration,
+                'title': video_info.get('title', '')[:200] if video_info.get('title') else None
+            }).eq('id', project_id).execute()
+            
+            print(f"✅ Video info retrieved: ID={video_id}, Duration={format_time(duration)}")
+            
+            if video_info.get('subtitle_path'):
+                print(f"✅ Subtitles found: {video_info['subtitle_path'].name}")
+            else:
+                print("⚠️ No subtitles available - AI analysis may be less accurate")
+                
+        except Exception as e:
+            print(f"⚠️ Failed to download metadata/subtitles: {e}")
+            # Fallback: extract video ID from URL
+            video_id = None
+            if 'youtube.com' in video_url or 'youtu.be' in video_url:
+                match = re.search(r'(?:v=|/)([a-zA-Z0-9_-]{11})', video_url)
+                if match:
+                    video_id = match.group(1)
+            
+            if not video_id:
+                raise Exception(f"Could not extract video ID from URL: {video_url}")
+            
+            video_info = {
+                'subtitle_path': None,
+                'duration': 600,  # Default 10 minutes
+                'video_id': video_id,
+                'title': ''
+            }
+            duration = 600
         
-        if not video_id:
-            video_id = "unknown"
-        
-        # Default duration for credit calculation (will be updated by model if it can detect)
-        duration = 600  # Default 10 minutes
-        
-        # Update project with estimated duration
-        supabase.table('projects').update({
-            'video_duration_seconds': duration
-        }).eq('id', project_id).execute()
-        
-        # Calculate credits cost based on default duration
+        # Calculate credits cost based on duration
         minutes = (duration + 59) // 60  # Round up
         credits_cost = max(10, int(minutes * 10))
-        
-        # Create video_info dict for compatibility
-        video_info = {
-            'subtitle_path': None,  # Always None - pure vision mode
-            'duration': duration,
-            'video_id': video_id,
-            'title': ''
-        }
         
         # Step 2: Analyze content with Gemini (get summary and sections)
         # Pass video_url instead of video_path for Storyboard

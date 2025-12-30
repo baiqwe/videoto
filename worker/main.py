@@ -507,7 +507,19 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
     """
     
     # 1. Try to get transcript first (preferred method)
+    print(f"📄 Attempting to parse subtitles from: {subtitle_path}")
     transcript_text = parse_vtt_to_text(subtitle_path)
+    
+    if transcript_text:
+        print(f"✅ Successfully parsed transcript: {len(transcript_text)} characters")
+    else:
+        print(f"⚠️ No transcript text extracted from subtitle file")
+        if subtitle_path:
+            print(f"   Subtitle path provided: {subtitle_path}")
+            if isinstance(subtitle_path, Path) and subtitle_path.exists():
+                print(f"   File exists but parsing failed or file is empty")
+            elif isinstance(subtitle_path, Path):
+                print(f"   File does not exist: {subtitle_path}")
     
     # 2. Whisper Fallback (only if video_path is available)
     if not transcript_text and video_path is not None:
@@ -657,12 +669,23 @@ def analyze_content(video_path: Path, subtitle_path: Optional[Path], video_url: 
     last_exception = None
 
     # 1. Determine Analysis Mode
-    use_youtube_url = True  # Always use YouTube URL with Gemini
+    use_youtube_url = True  # Default to YouTube URL mode
     if transcript_text and len(transcript_text.strip()) > 0:
         print(f"✅ Found transcript ({len(transcript_text)} chars). Using Text Analysis Mode.")
         use_youtube_url = False
     else:
-        print("⚠️ No transcript found. Using YouTube URL Analysis Mode with Gemini.")
+        print("⚠️ No transcript found.")
+        if subtitle_path:
+            print(f"   Subtitle path was provided: {subtitle_path}")
+            if isinstance(subtitle_path, Path):
+                if subtitle_path.exists():
+                    print(f"   File exists but is empty or unparseable")
+                    print(f"   File size: {subtitle_path.stat().st_size} bytes")
+                else:
+                    print(f"   File does not exist at path: {subtitle_path}")
+        else:
+            print(f"   No subtitle path provided (None)")
+        print("   ⚠️ Cannot proceed without transcript - Gemini requires subtitles for YouTube videos")
 
     # 2. System Prompt
     system_prompt = """You are an expert video content analyzer. You MUST return valid JSON with the exact structure specified.
@@ -889,6 +912,10 @@ def process_project(project: Dict):
         
         print("📥 Downloading video metadata and subtitles...")
         
+        video_info = None
+        duration = 600
+        video_id = None
+        
         try:
             video_info = download_subtitles_only(video_url, project_dir)
             duration = video_info.get('duration', 600)
@@ -903,14 +930,21 @@ def process_project(project: Dict):
             print(f"✅ Video info retrieved: ID={video_id}, Duration={format_time(duration)}")
             
             if video_info.get('subtitle_path'):
-                print(f"✅ Subtitles found: {video_info['subtitle_path'].name}")
+                subtitle_file = video_info['subtitle_path']
+                if isinstance(subtitle_file, Path):
+                    print(f"✅ Subtitles found: {subtitle_file.name} (path: {subtitle_file})")
+                else:
+                    print(f"✅ Subtitles found: {subtitle_file}")
             else:
-                print("⚠️ No subtitles available - AI analysis may be less accurate")
+                print("⚠️ No subtitles available - will attempt analysis without transcript")
+                print("   Note: Analysis quality may be reduced without subtitles")
                 
         except Exception as e:
             print(f"⚠️ Failed to download metadata/subtitles: {e}")
+            import traceback
+            print(f"   Full error: {traceback.format_exc()}")
+            
             # Fallback: extract video ID from URL
-            video_id = None
             if 'youtube.com' in video_url or 'youtu.be' in video_url:
                 match = re.search(r'(?:v=|/)([a-zA-Z0-9_-]{11})', video_url)
                 if match:
@@ -926,6 +960,7 @@ def process_project(project: Dict):
                 'title': ''
             }
             duration = 600
+            print(f"⚠️ Using fallback: video_id={video_id}, duration={duration}s")
         
         # Calculate credits cost based on duration
         minutes = (duration + 59) // 60  # Round up

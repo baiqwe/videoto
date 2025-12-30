@@ -121,11 +121,31 @@ def get_youtube_cookies_path() -> Optional[str]:
             temp_file = Path(tempfile.gettempdir()) / "youtube_cookies.txt"
             # Write as binary to preserve any non-UTF8 characters
             temp_file.write_bytes(cookies_binary)
-            print(f"   🍪 Using cookies from YOUTUBE_COOKIES_B64 (decoded to {temp_file})")
-            return str(temp_file)
+            
+            # Validate cookie file
+            if temp_file.stat().st_size == 0:
+                print(f"   ⚠️ Cookie file is empty after decoding")
+                return None
+            
+            # Check if it's a valid Netscape format (starts with # Netscape)
+            try:
+                first_line = temp_file.read_text('utf-8', errors='ignore').split('\n')[0]
+                if first_line.startswith('# Netscape') or 'youtube.com' in first_line.lower():
+                    print(f"   🍪 Using cookies from YOUTUBE_COOKIES_B64 (decoded to {temp_file}, {temp_file.stat().st_size} bytes)")
+                    return str(temp_file)
+                else:
+                    print(f"   ⚠️ Cookie file doesn't appear to be in Netscape format")
+                    print(f"   💡 First line: {first_line[:50]}")
+            except:
+                # If we can't read as text, assume it's binary format (OK)
+                print(f"   🍪 Using cookies from YOUTUBE_COOKIES_B64 (decoded to {temp_file}, {temp_file.stat().st_size} bytes)")
+                return str(temp_file)
+                
         except Exception as e:
             print(f"   ⚠️ Failed to decode YOUTUBE_COOKIES_B64: {e}")
             print(f"   💡 Tip: Ensure cookies are properly base64 encoded")
+            import traceback
+            print(f"   Full error: {traceback.format_exc()}")
     
     # Option 2: Plain text environment variable
     cookies_plain = os.getenv("YOUTUBE_COOKIES")
@@ -179,18 +199,47 @@ def download_subtitles_only(url: str, output_path: Path) -> Dict:
     # Attempt 1: With cookies (if available)
     if cookies_path:
         print(f"   ℹ️ Attempting metadata extraction WITH cookies...")
+        print(f"   📁 Cookie file: {cookies_path}")
+        
+        # Enhanced options for YouTube access with cookies
         ydl_opts_info = {
             'skip_download': True,
             'quiet': True,
             'no_warnings': True,
-            'cookiefile': cookies_path
+            'cookiefile': cookies_path,
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            # Add retry options
+            'retries': 3,
+            'fragment_retries': 3,
+            # Try to bypass age verification
+            'age_limit': None,
+            # Additional headers
+            'http_headers': {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-us,en;q=0.5',
+                'Accept-Encoding': 'gzip,deflate',
+                'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+                'Keep-Alive': '300',
+                'Connection': 'keep-alive',
+            },
         }
+        
         try:
             with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
                 info = ydl.extract_info(url, download=False)
                 print("   ✅ Metadata extracted successfully with cookies")
         except Exception as e:
-            print(f"   ⚠️ Metadata extraction with cookies failed: {e}")
+            error_msg = str(e)
+            print(f"   ⚠️ Metadata extraction with cookies failed: {error_msg}")
+            
+            # Check cookie-specific errors
+            if 'cookie' in error_msg.lower() or 'authentication' in error_msg.lower():
+                print(f"   ⚠️ Cookie authentication failed - cookies may be expired or invalid")
+                print(f"   💡 Try re-exporting cookies from your browser")
+            elif 'bot' in error_msg.lower() or 'sign in' in error_msg.lower():
+                print(f"   ⚠️ YouTube still requires verification even with cookies")
+                print(f"   💡 Cookies may need to be refreshed or video requires login")
+            
             metadata_error = e
 
     # Attempt 2: Without cookies (if attempt 1 failed or no cookies)
@@ -961,9 +1010,26 @@ def process_project(project: Dict):
                 print("   Note: Analysis quality may be reduced without subtitles")
                 
         except Exception as e:
-            print(f"⚠️ Failed to download metadata/subtitles: {e}")
+            error_msg = str(e)
+            print(f"⚠️ Failed to download metadata/subtitles: {error_msg}")
             import traceback
             print(f"   Full error: {traceback.format_exc()}")
+            
+            # Check if it's a cookie/verification issue
+            if 'bot' in error_msg.lower() or 'sign in' in error_msg.lower() or 'verification' in error_msg.lower():
+                print(f"\n   🔍 DIAGNOSIS: YouTube verification required")
+                print(f"   📋 Possible causes:")
+                print(f"      1. Cookies expired or invalid")
+                print(f"      2. Cookies not properly formatted")
+                print(f"      3. YouTube rate limiting")
+                print(f"      4. Video requires login")
+                print(f"\n   💡 SOLUTIONS:")
+                print(f"      1. Re-export cookies from browser (see YOUTUBE_COOKIES_SETUP.md)")
+                print(f"      2. Ensure cookies are in Netscape format")
+                print(f"      3. Check YOUTUBE_COOKIES_B64 is correctly base64 encoded")
+                print(f"      4. Wait 10-15 minutes and retry (rate limiting)")
+                print(f"      5. Try a different video URL")
+                print(f"      6. Update yt-dlp: pip install --upgrade yt-dlp")
             
             # Fallback: extract video ID from URL
             if 'youtube.com' in video_url or 'youtu.be' in video_url:
@@ -972,7 +1038,10 @@ def process_project(project: Dict):
                     video_id = match.group(1)
             
             if not video_id:
-                raise Exception(f"Could not extract video ID from URL: {video_url}")
+                raise Exception(
+                    f"Could not extract video ID from URL: {video_url}\n"
+                    f"Original error: {error_msg}"
+                )
             
             video_info = {
                 'subtitle_path': None,
@@ -982,6 +1051,7 @@ def process_project(project: Dict):
             }
             duration = 600
             print(f"⚠️ Using fallback: video_id={video_id}, duration={duration}s")
+            print(f"   ⚠️ WARNING: Cannot proceed without subtitles - analysis will fail")
         
         # Calculate credits cost based on duration
         minutes = (duration + 59) // 60  # Round up

@@ -318,7 +318,6 @@ def parse_vtt_to_text(vtt_path: Optional[Path]) -> str:
         Cleaned transcript text (limited to 25000 chars to avoid token limits)
     """
     if not vtt_path or not vtt_path.exists():
-        return ""
         print("⚠️  No subtitle file to parse.")
         return ""
     
@@ -354,23 +353,28 @@ def parse_vtt_to_text(vtt_path: Optional[Path]) -> str:
 # All screenshots now use StoryboardExtractor instead
 
 def transcribe_with_whisper(audio_path: Path) -> str:
-    """Fallback: Transcribe audio using Whisper API"""
-    print(f"🎙️ Transcribing audio with Whisper: {audio_path.name}")
+    """
+    Fallback: Transcribe audio using Whisper API
+    
+    Note: This function is currently disabled as we use Gemini for video analysis.
+    OpenAI Whisper API requires OPENAI_API_KEY and OPENAI_BASE_URL to be configured.
+    """
+    print(f"🎙️ Whisper transcription requested for: {audio_path.name}")
+    
+    # Get OpenAI configuration from environment
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    
+    if not openai_api_key:
+        print("⚠️ Whisper transcription skipped: OPENAI_API_KEY not configured")
+        return ""
+    
     try:
-        if not USE_OPENAI_MODE or not OPENAI_BASE_URL:
-             # If we are in native mode, we can't use Whisper API easily unless we init a client
-             # But user is in Aggregator mode, so we use 'requests' as standardized in main.py
-             pass
-        
-        # We need to construct the request manually or use openai client if valid
-        # Given we switched to 'requests' to fix Broken Pipe, we'll use requests here too.
-        
         headers = {
-            "Authorization": f"Bearer {OPENAI_API_KEY}", 
+            "Authorization": f"Bearer {openai_api_key}", 
         }
         
-        # Note: Aggregators usually use standard OpenAI 'video/audio' endpoint
-        url = f"{OPENAI_BASE_URL}/audio/transcriptions"
+        url = f"{openai_base_url}/audio/transcriptions"
         
         with open(audio_path, "rb") as f:
             files = {
@@ -835,55 +839,6 @@ Duration: {format_time(duration)} ({duration:.1f} seconds)
     # If all models failed
     print("❌ All Gemini models failed.")
     raise last_exception or Exception("All models failed")
-                            elif len(parts) == 2:
-                                normalized['timestamp_seconds'] = int(parts[0]) * 60 + float(parts[1])
-                            elif len(parts) == 3:
-                                normalized['timestamp_seconds'] = int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
-                            else:
-                                normalized['timestamp_seconds'] = 0
-                        except:
-                            normalized['timestamp_seconds'] = 0
-                    else:
-                        normalized['timestamp_seconds'] = float(raw_timestamp) if raw_timestamp else 0
-                    
-                    # Clamp timestamp to video duration
-                    if normalized['timestamp_seconds'] > duration:
-                        normalized['timestamp_seconds'] = max(5.0, duration - 10)
-                    
-                    # Normalize needs_screenshot
-                    normalized['needs_screenshot'] = bool(
-                        section.get('needs_screenshot') or 
-                        section.get('screenshot') or 
-                        section.get('has_screenshot') or 
-                        section.get('visual') or 
-                        False
-                    )
-                    
-                    normalized_sections.append(normalized)
-                
-                data['sections'] = normalized_sections
-                
-                print(f"✅ Successfully parsed {len(data['sections'])} sections using {model_name}")
-                return data
-
-            except json.JSONDecodeError as e:
-                # Enhanced error message with response preview
-                preview = response_text[:500] if len(response_text) > 500 else response_text
-                print(f"❌ JSON Decode Error: {e}")
-                print(f"   Response preview: {preview}...")
-                raise Exception(f"Failed to parse AI response as JSON. Error: {e}")
-            except ValueError as e:
-                print(f"❌ JSON Structure Error: {e}")
-                print(f"   Parsed data keys: {data.keys() if isinstance(data, dict) else 'not a dict'}")
-                raise Exception(f"AI response has invalid structure: {e}")
-
-        except Exception as e:
-            print(f"⚠️  Model {model_name} failed: {e}")
-            last_exception = e
-            continue
-            
-    print("❌ All models failed.")
-    raise last_exception or Exception("All models failed")
 
 
 def process_project(project: Dict):
@@ -1108,4 +1063,3 @@ if __name__ == "__main__":
     
     print(f"✅ Configuration OK - Using Google Gemini API")
     worker_loop()
-```

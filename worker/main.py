@@ -116,13 +116,16 @@ def get_youtube_cookies_path() -> Optional[str]:
     cookies_b64 = os.getenv("YOUTUBE_COOKIES_B64")
     if cookies_b64:
         try:
-            cookies_content = base64.b64decode(cookies_b64).decode('utf-8')
+            # Decode base64 to binary (cookies file can be binary)
+            cookies_binary = base64.b64decode(cookies_b64)
             temp_file = Path(tempfile.gettempdir()) / "youtube_cookies.txt"
-            temp_file.write_text(cookies_content)
+            # Write as binary to preserve any non-UTF8 characters
+            temp_file.write_bytes(cookies_binary)
             print(f"   🍪 Using cookies from YOUTUBE_COOKIES_B64 (decoded to {temp_file})")
             return str(temp_file)
         except Exception as e:
             print(f"   ⚠️ Failed to decode YOUTUBE_COOKIES_B64: {e}")
+            print(f"   💡 Tip: Ensure cookies are properly base64 encoded")
     
     # Option 2: Plain text environment variable
     cookies_plain = os.getenv("YOUTUBE_COOKIES")
@@ -193,17 +196,33 @@ def download_subtitles_only(url: str, output_path: Path) -> Dict:
     # Attempt 2: Without cookies (if attempt 1 failed or no cookies)
     if not info:
         print(f"   ℹ️ Attempting metadata extraction WITHOUT cookies...")
-        ydl_opts_info_no_cookies = {
+        # Common yt-dlp options to help with YouTube access
+        yt_dlp_base_opts = {
             'skip_download': True,
             'quiet': True,
             'no_warnings': True,
+            # Try to use a different user agent
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         }
+        
+        ydl_opts_info_no_cookies = yt_dlp_base_opts.copy()
         try:
             with yt_dlp.YoutubeDL(ydl_opts_info_no_cookies) as ydl:
                 info = ydl.extract_info(url, download=False)
                 print("   ✅ Metadata extracted successfully WITHOUT cookies")
         except Exception as e:
-            print(f"   ❌ Metadata extraction failed without cookies: {e}")
+            error_msg = str(e)
+            print(f"   ❌ Metadata extraction failed without cookies: {error_msg}")
+            
+            # Check if it's a bot verification error
+            if 'bot' in error_msg.lower() or 'sign in' in error_msg.lower():
+                print(f"\n   ⚠️ YouTube is requiring bot verification")
+                print(f"   💡 Solutions:")
+                print(f"      1. Configure YOUTUBE_COOKIES_B64 with valid cookies")
+                print(f"      2. Export cookies from browser using yt-dlp instructions")
+                print(f"      3. Wait a few minutes and try again (rate limiting)")
+                print(f"      4. Try a different video that doesn't require verification")
+            
             # If both failed, raise the last error
             raise metadata_error or e
 
@@ -242,6 +261,7 @@ def download_subtitles_only(url: str, output_path: Path) -> Dict:
                 'outtmpl': str(output_path / '%(id)s'),
                 'quiet': True,
                 'no_warnings': True,
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             }
             if cookies_path:
                 ydl_opts_subs['cookiefile'] = cookies_path
@@ -277,6 +297,7 @@ def download_subtitles_only(url: str, output_path: Path) -> Dict:
                     'outtmpl': str(output_path / '%(id)s'),
                     'quiet': True,
                     'no_warnings': True,
+                    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 }
                 if cookies_path:
                     ydl_opts_auto['cookiefile'] = cookies_path
